@@ -100,6 +100,9 @@ static struct option const longopts[] ={
     {"servermode_timeout", required_argument, NULL, 23},
 #endif
     {"pentax_debug_mode", required_argument, NULL,24},
+    {"debug_download_mode", required_argument, NULL,25},
+    {"debug_address", required_argument, NULL,26},
+    {"debug_length", required_argument, NULL,27},
     { NULL, 0, NULL, 0}
 };
 
@@ -107,6 +110,9 @@ int save_buffer(pslr_handle_t, int, int, pslr_status*, user_file_format, int);
 void print_status_info(pslr_handle_t h, pslr_status status);
 void usage(char*);
 void version(char*);
+
+int debug_download(pslr_handle_t h, uint32_t address, uint32_t length, const char* filename);
+int debug_upload(pslr_handle_t h, uint32_t address, const char* filename);
 
 int open_file(char* output_file, int frameNo, user_file_format_t ufft) {
     int ofd = -1;
@@ -207,6 +213,10 @@ int main(int argc, char **argv) {
 
     int modify_debug_mode=0;
     char debug_mode=0;
+
+    int debug_download_mode = -1;
+    uint32_t debug_address = 0;
+    uint32_t debug_length = 0x10000;
 
     // just parse warning, debug flags
     while  ((optc = getopt_long(argc, argv, shortopts, longopts, NULL)) != -1) {
@@ -504,7 +514,20 @@ int main(int argc, char **argv) {
 	    case 24:
 		modify_debug_mode=1;
 		debug_mode=atoi(optarg);
-        }
+
+      case 25:
+        debug_download_mode = atoi(optarg);
+        break;
+
+      case 26:
+        debug_address = strtol(optarg, NULL, 16);
+        break;
+
+      case 27:
+        debug_length = strtol(optarg, NULL, 16);
+        break;
+
+      }
     }
 
 #ifndef WIN32
@@ -539,6 +562,28 @@ int main(int argc, char **argv) {
 	debug_onoff(camhandle,debug_mode);
 	camera_close(camhandle);
 	exit(0);
+    }
+
+    //  for debug memory download/upload
+    if ( debug_download_mode >= 0) {
+      printf("mode = %d, address = 0x%08x, length = 0x%08x, output_file = '%s'\n",
+        debug_download_mode, debug_address, debug_length, output_file);
+
+      switch(debug_download_mode) {
+        case 0:
+          debug_download(camhandle, debug_address, debug_length, output_file);
+          break;
+        case 1:
+          debug_upload(camhandle, debug_address, output_file);
+          break;
+        default:
+          fprintf(stderr, "Download mode can only be 0 or 1\n");
+          camera_close(camhandle);
+          exit(-1);
+      }
+
+      camera_close(camhandle);
+      exit(0);
     }
 
     pslr_get_status(camhandle, &status);
@@ -845,6 +890,95 @@ void print_status_info( pslr_handle_t h, pslr_status status ) {
     printf( "%s", collect_status_info( h, status ) );
 }
 
+#define BUFFER_SIZE 0x10000
+
+int debug_download(pslr_handle_t h, uint32_t address, uint32_t length, const char* filename)
+{
+  int fd;
+  //  open file for download
+  if (!filename) {
+    //  STDOUT
+    fd = 1;
+  } else {
+    fd = open(filename, FILE_ACCESS, 0664);
+    if (fd == -1) {
+      fprintf(stderr, "Could not open %s for output.\n", filename);
+      return -1;
+    }
+  }
+
+  //  Download the memory
+  uint8_t* buf = (uint8_t*) malloc(length);
+  int ret = pslr_download(h, address, length, buf);
+  if (ret != PSLR_OK) {
+    fprintf(stderr, "pslr_download() error.\n");
+    return 0;
+  } else {
+    ssize_t r = write(fd, buf, length);
+    if (r == 0) {
+        DPRINT("write(buf): Nothing has been written to buf.\n");
+    } else if (r == -1) {
+        perror("write(buf)");
+    } else if (r < length) {
+        DPRINT("write(buf): only write %d bytes, should be %d bytes.\n", r, length);
+    }
+  }
+
+  //  Close the file
+  if (fd != 1) {
+    close(fd);
+  }
+
+  return PSLR_OK;
+}
+
+#ifdef WIN32
+#define FILE_READ_ACCESS O_RDONLY | O_BINARY
+#else
+#define FILE_READ_ACCESS O_RDONLY
+#endif
+
+int debug_upload(pslr_handle_t h, uint32_t address, const char* filename)
+{
+  //  open file for upload
+  FILE* fp = fopen(filename, "rb");
+  if (fp == NULL) {
+    fprintf(stderr, "Could not open %s for read.\n", filename);
+    return -1;
+  }
+
+  //  Load file content
+  //    get file size
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+  rewind(fp);
+
+  //    allocate buffer
+  uint8_t* buffer = (uint8_t*) malloc(size);
+  if (buffer == NULL){
+    fputs("Memory error.", stderr);
+    exit(2);
+  }
+
+  //    read content
+  int ret = fread(buffer, 1, size, fp);
+  if (ret != size) {
+    fputs ("Reading error",stderr);
+    exit (3);
+  }
+
+  ret = pslr_upload(h, address, size, buffer);
+  if (ret != PSLR_OK) {
+    fprintf(stderr, "pslr_upload() error.\n");
+    return 0;
+  }
+
+  fclose(fp);
+  free(buffer);
+
+  return PSLR_OK;
+}
+
 void usage(char *name) {
     printf("\nUsage: %s [OPTIONS]\n\n\
 Shoot a Pentax DSLR and send the picture to standard output.\n\
@@ -889,6 +1023,9 @@ Shoot a Pentax DSLR and send the picture to standard output.\n\
   -v, --version                         display version information and exit\n\
   -h, --help                            display this help and exit\n\
       --pentax_debug_mode={0|1}		enable or disable camera debug mode and exit (DANGEROUS). Valid values are: 0, 1\n\
+      --debug_download_mode={0|1}       set memory download/upload mode (DANGEROUS). Valid values are: 0 - download, 1 - upload\n\
+      --debug_address=ADDRESS           set memory download/upload address (DANGEROUS). Address value should be in hex number. e.g. 0x2000000\n\
+      --debug_length=LENGTH             set memory download length (DANGEROUS). Value should be in hex number, e.g. 0x1000. Default: 0x10000\n\
 \n", name);
 }
 

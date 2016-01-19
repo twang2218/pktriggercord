@@ -8,7 +8,7 @@
     Support for K-30 added by Camilo Polymeris <cpolymeris@gmail.com> 09/2012
     Support for K-01 added by Ethan Queen <ethanqueen@gmail.com> 01/2013
     Support for K-3 added by Tao Wang <twang2218@gmail.com> 01/2016
-    
+
     based on:
 
     PK-Remote
@@ -19,7 +19,7 @@
     Copyright (C) 2010 Tomasz Kos
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by 
+    it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
@@ -113,7 +113,7 @@ typedef enum {
     PSLR_EXPOSURE_MODE_B_OFFAUTO = 12,
     PSLR_EXPOSURE_MODE_TAV = 13, // ?
     PSLR_EXPOSURE_MODE_SV = 15,
-    PSLR_EXPOSURE_MODE_X = 16, // ?   
+    PSLR_EXPOSURE_MODE_X = 16, // ?
     PSLR_EXPOSURE_MODE_MAX = 17
 } pslr_exposure_mode_t;
 
@@ -160,7 +160,7 @@ char *collect_status_info( pslr_handle_t h, pslr_status status );
 int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type type, int resolution,
                     uint8_t **pdata, uint32_t *pdatalen);
 
-int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb, 
+int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb,
                                uintptr_t user_data);
 
 int pslr_set_shutter(pslr_handle_t h, pslr_rational_t value);
@@ -238,5 +238,6 @@ int pslr_test( pslr_handle_t h, bool cmd9_wrap, int subcommand, int argnum,  int
 void write_debug( const char* message, ... );
 
 int debug_onoff(ipslr_handle_t *p, char debug_mode);
-
+int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t* buf);
+int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t* buf);
 #endif

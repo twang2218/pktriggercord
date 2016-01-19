@@ -52,8 +52,9 @@
 #include "pslr_lens.h"
 
 #define POLL_INTERVAL 100000 /* Number of us to wait when polling */
-#define BLKSZ 65536 /* Block size for downloads; if too big, we get
+#define BLKSZ 0x200 /* 65536 */ /* Block size for downloads; if too big, we get
                      * memory allocation error from sg driver */
+#define DOWNLOAD_BLOCK_SIZE 0x200
 #define BLOCK_RETRY 3 /* Number of retries, since we can occasionally
                        * get SCSI errors when downloading data */
 
@@ -1107,6 +1108,58 @@ pslr_buffer_type pslr_get_jpeg_buffer_type(pslr_handle_t h, int jpeg_stars) {
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     return 2 + get_hw_jpeg_quality( p->model, jpeg_stars );
 }
+
+int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t* buf)
+{
+  ipslr_handle_t *p = (ipslr_handle_t *) h;
+  return ipslr_download(p, address, length, buf);
+}
+
+int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length,
+                uint8_t *buf) {
+  DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, length);
+  ipslr_handle_t *p = (ipslr_handle_t *) h;
+  uint8_t uploadCmd[8] = {0xf0, 0x24, 0x06, 0x03, 0x00, 0x00, 0x00, 0x00};
+  uint32_t block;
+  int n;
+  int retry;
+  uint32_t length_start = length;
+
+  retry = 0;
+  while (length > 0) {
+    if (length > BLKSZ) {
+      block = BLKSZ;
+    } else {
+      block = length;
+    }
+
+    // DPRINT("Get 0x%x bytes from 0x%x\n", block, addr);
+    CHECK(ipslr_write_args(p, 2, address, block));
+    CHECK(command(p->fd, 0x06, 0x01, 0x08));
+    get_status(p->fd);
+
+    n = scsi_write(p->fd, uploadCmd, sizeof(uploadCmd), buf, block);
+    get_status(p->fd);
+
+    if (n < 0) {
+      if (retry < BLOCK_RETRY) {
+        retry++;
+        continue;
+      }
+      return PSLR_READ_ERROR;
+    }
+    buf += n;
+    length -= n;
+    address += n;
+    retry = 0;
+    if (progress_callback) {
+      progress_callback(length_start - length, length_start);
+    }
+  }
+
+  return PSLR_OK;
+}
+
 
 /* ----------------------------------------------------------------------- */
 
