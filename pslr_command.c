@@ -160,3 +160,8 @@ int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *b
 
     return PSLR_OK;
 }
+
+int plsr_get_transfer_status(ipslr_handle_t *p) {
+    DPRINT("[C]\t\tplsr_get_transfer_status()\n");
+    return ipslr_get_transfer_status(p);
+}

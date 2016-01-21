@@ -72,11 +72,11 @@ int scsi_send_argument(pslr_command_t *command) {
     uint8_t cmd[8] = {0xf0, 0x4f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     int i;
 
-    DPRINT("[C]\t\t\tsend_argument(");
+    DPRINT("[C]\t\t\tsend_argument");
     if (command->args_count > 0) {
         debug_print_arguments(command);
     }
-    DPRINT(")\n");
+    DPRINT("\n");
 
     //  construct argument buffer
     uint8_t args_size = sizeof(uint32_t) * command->args_count;
@@ -176,7 +176,7 @@ int scsi_get_status(pslr_command_t *command, pslr_status_t *status) {
 }
 
 int scsi_read_result(pslr_command_t *command) {
-    DPRINT("[C]\t\t\tread_result(0x%x, size=%d)\n", command->handle->fd, command->data_length);
+    DPRINT("[C]\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data_length);
     uint8_t cmd[8] = {0xf0, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     set_uint32_le(command->data_length, &cmd[4]);

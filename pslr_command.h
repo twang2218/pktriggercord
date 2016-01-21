@@ -25,5 +25,6 @@
 
 int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf);
 int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf);
+int plsr_get_transfer_status(ipslr_handle_t *p);
 
 #endif // PSLR_COMMAND_H
