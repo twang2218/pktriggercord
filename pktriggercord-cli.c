@@ -42,6 +42,7 @@
 #include <sys/time.h>
 
 #include "pslr.h"
+#include "pslr_command.h"
 //#include "pslr_lens.h"
 #include "pktriggercord-servermode.h"
 
@@ -908,7 +909,7 @@ int debug_download(pslr_handle_t h, uint32_t address, uint32_t length, const cha
   }
 
   //  Download the memory
-  uint8_t* buf = (uint8_t*) malloc(length);
+  uint8_t* buf = (uint8_t*) malloc(length);  
   int ret = pslr_download(h, address, length, buf);
   if (ret != PSLR_OK) {
     fprintf(stderr, "pslr_download() error.\n");

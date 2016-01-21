@@ -38,7 +38,7 @@ all: srczip rpm win pktriggercord_commandline.html
 cli: pktriggercord-cli
 
 MANS = pktriggercord-cli.1 pktriggercord.1
-SRCOBJNAMES = pslr pslr_enum pslr_scsi pslr_lens pslr_model pktriggercord-servermode
+SRCOBJNAMES = pslr pslr_enum pslr_command pslr_scsi_command pslr_scsi pslr_lens pslr_model pktriggercord-servermode
 OBJS = $(SRCOBJNAMES:=.o)
 WIN_DLLS_DIR=win_dlls
 SOURCE_PACKAGE_FILES = Makefile Changelog COPYING INSTALL BUGS $(MANS) pentax.rules samsung.rules $(SRCOBJNAMES:=.h) $(SRCOBJNAMES:=.c) pslr_scsi_linux.c pslr_scsi_win.c exiftool_pentax_lens.txt pktriggercord.c pktriggercord-cli.c pktriggercord.ui $(SPECFILE) android_scsi_sg.h

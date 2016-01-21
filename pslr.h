@@ -238,6 +238,4 @@ int pslr_test( pslr_handle_t h, bool cmd9_wrap, int subcommand, int argnum,  int
 void write_debug( const char* message, ... );
 
 int debug_onoff(ipslr_handle_t *p, char debug_mode);
-int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t* buf);
-int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t* buf);
 #endif
