@@ -31,39 +31,79 @@
  * get SCSI errors when downloading data */
 #define BLOCK_RETRY 3
 
+/*  ------------------------------------------------------------    */
+
+int ipslr_request_download(ipslr_handle_t *p, uint32_t address, int32_t length) {
+    pslr_command_t command;
+    command_init(&command);
+    command.handle = p;
+    command.c0 = 0x06;
+    command.c1 = 0x00;
+    command.args_count = 2;
+    command.args[0] = address;
+    command.args[1] = length;
+    return generic_command(&command);
+}
+
+int ipslr_do_download(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
+    pslr_command_t command;
+    command_init(&command);
+    command.handle = p;
+    command.c0 = 0x06;
+    command.c1 = 0x02;
+    command.direction = SCSI_READ;
+    command.data = buf;
+    command.data_length = length;
+    generic_command(&command);
+    return command.data_length;
+}
+
+int ipslr_request_upload(ipslr_handle_t *p, uint32_t address, int32_t length) {
+    pslr_command_t command;
+    command_init(&command);
+    command.handle = p;
+    command.c0 = 0x06;
+    command.c1 = 0x01;
+    command.args_count = 2;
+    command.args[0] = address;
+    command.args[1] = length;
+    return generic_command(&command);
+}
+
+int ipslr_do_upload(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
+    pslr_command_t command;
+    command_init(&command);
+    command.handle = p;
+    command.c0 = 0x06;
+    command.c1 = 0x03;
+    command.data = buf;
+    command.data_length = length;
+    generic_command(&command);
+    return command.data_length;
+}
+
+int ipslr_get_transfer_status(ipslr_handle_t *p) {
+    pslr_command_t command;
+    command_init(&command);
+    command.handle = p;
+    command.c0 = 0x06;
+    command.c1 = 0x04;
+    command.read_result = true;
+    return generic_command(&command);
+}
+
+/*  ------------------------------------------------------------    */
+
 int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf) {
     DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, length);
     // uint32_t length_start = length;
 
-    pslr_command_t command[2];
-
-    //  Command of Request to Download
-    command_init(&command[0]);
-    command[0].handle = p;
-    command[0].c0 = 0x06;
-    command[0].c1 = 0x00;
-    command[0].args_count = 2;
-
-    //  Command of Do Download
-    command_init(&command[1]);
-    command[1].handle = p;
-    command[1].c0 = 0x06;
-    command[1].c1 = 0x02;
-    command[1].direction = SCSI_READ;
-
     int retry = 0;
     while (length > 0) {
         uint32_t block = (length > BLOCK_SIZE) ? BLOCK_SIZE : length;
-
-        command[0].args[0] = address;
-        command[0].args[1] = block;
-        generic_command(&command[0]);
-
-        command[1].data = buf;
-        command[1].data_length = block;
-        generic_command(&command[1]);
-
-        if (command[1].data_length < 0) {
+        ipslr_request_download(p, address, block);
+        int ret = ipslr_do_download(p, buf, block);
+        if (ret < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
                 continue;
@@ -72,9 +112,9 @@ int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t 
         }
 
         //  shift pointers
-        buf += command[1].data_length;
-        length -= command[1].data_length;
-        address += command[1].data_length;
+        buf += ret;
+        length -= ret;
+        address += ret;
         //  clear retry counter
         retry = 0;
 
@@ -91,34 +131,12 @@ int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *b
     DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, length);
     // uint32_t length_start = length;
 
-    pslr_command_t command[2];
-
-    //  Command of Request to Upload
-    command_init(&command[0]);
-    command[0].handle = p;
-    command[0].c0 = 0x06;
-    command[0].c1 = 0x01;
-    command[0].args_count = 2;
-
-    //  Command of Do Upload
-    command_init(&command[1]);
-    command[1].handle = p;
-    command[1].c0 = 0x06;
-    command[1].c1 = 0x03;
-
     int retry = 0;
     while (length > 0) {
         uint32_t block = (length > BLOCK_SIZE) ? BLOCK_SIZE : length;
-
-        command[0].args[0] = address;
-        command[0].args[1] = block;
-        generic_command(&command[0]);
-
-        command[1].data = buf;
-        command[1].data_length = block;
-        generic_command(&command[1]);
-
-        if (command[1].data_length < 0) {
+        ipslr_request_upload(p, address, block);
+        int ret = ipslr_do_upload(p, buf, block);
+        if (ret < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
                 continue;
@@ -127,9 +145,9 @@ int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *b
         }
 
         //  shift pointers
-        buf += command[1].data_length;
-        length -= command[1].data_length;
-        address += command[1].data_length;
+        buf += ret;
+        length -= ret;
+        address += ret;
 
         //  clear retry counter
         retry = 0;
