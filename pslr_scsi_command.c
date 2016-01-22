@@ -227,10 +227,13 @@ int generic_command(pslr_command_t *command) {
     return PSLR_OK;
 }
 
-void command_init(pslr_command_t *command) {
+void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t c1) {
     memset(command, 0, sizeof(pslr_command_t));
     command->read_result = false;
     command->direction = SCSI_WRITE;
+    command->handle = (ipslr_handle_t*) h;
+    command->c0 = c0;
+    command->c1 = c1;
 }
 
 void command_free(pslr_command_t *command) {
@@ -239,4 +242,8 @@ void command_free(pslr_command_t *command) {
         command->data = NULL;
         command->data_length = 0;
     }
+}
+
+void command_add_arg(pslr_command_t *command, uint32_t value) {
+    command->args[command->args_count++] = value;
 }

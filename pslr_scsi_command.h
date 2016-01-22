@@ -46,12 +46,15 @@ typedef struct {
     uint8_t status[2];
 } pslr_status_t;
 
+typedef void* pslr_handle_t;
+
 int scsi_send_argument(pslr_command_t *command);
 int scsi_send_command(pslr_command_t *command);
 int scsi_get_status(pslr_command_t *command, pslr_status_t *status);
 int scsi_read_result(pslr_command_t *command);
 int generic_command(pslr_command_t *command);
-void command_init(pslr_command_t *command);
+void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t c1);
 void command_free(pslr_command_t *command);
+void command_add_arg(pslr_command_t *command, uint32_t value);
 
 #endif // PSLR_SCSI_COMMAND_H
