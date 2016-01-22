@@ -22,6 +22,7 @@
 #include <stdbool.h>
 
 #include "pslr_scsi_command.h"
+#include "pslr_command.h"
 
 /* Block size for downloads; if too big, we get
  * memory allocation error from sg driver */
@@ -33,10 +34,10 @@
 
 /*  ------------------------------------------------------------    */
 
-int ipslr_request_download(ipslr_handle_t *p, uint32_t address, int32_t length) {
+int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length) {
     pslr_command_t command;
     command_init(&command);
-    command.handle = p;
+    command.handle = (ipslr_handle_t*) h;
     command.c0 = 0x06;
     command.c1 = 0x00;
     command.args_count = 2;
@@ -45,10 +46,10 @@ int ipslr_request_download(ipslr_handle_t *p, uint32_t address, int32_t length) 
     return generic_command(&command);
 }
 
-int ipslr_do_download(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
+int pslr_do_download(pslr_handle_t h, uint8_t* buf, int32_t length) {
     pslr_command_t command;
     command_init(&command);
-    command.handle = p;
+    command.handle = (ipslr_handle_t*) h;
     command.c0 = 0x06;
     command.c1 = 0x02;
     command.direction = SCSI_READ;
@@ -58,10 +59,10 @@ int ipslr_do_download(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
     return command.data_length;
 }
 
-int ipslr_request_upload(ipslr_handle_t *p, uint32_t address, int32_t length) {
+int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length) {
     pslr_command_t command;
     command_init(&command);
-    command.handle = p;
+    command.handle = (ipslr_handle_t*) h;
     command.c0 = 0x06;
     command.c1 = 0x01;
     command.args_count = 2;
@@ -70,10 +71,10 @@ int ipslr_request_upload(ipslr_handle_t *p, uint32_t address, int32_t length) {
     return generic_command(&command);
 }
 
-int ipslr_do_upload(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
+int pslr_do_upload(pslr_handle_t h, uint8_t* buf, int32_t length) {
     pslr_command_t command;
     command_init(&command);
-    command.handle = p;
+    command.handle = (ipslr_handle_t*) h;
     command.c0 = 0x06;
     command.c1 = 0x03;
     command.data = buf;
@@ -82,10 +83,11 @@ int ipslr_do_upload(ipslr_handle_t *p, uint8_t* buf, int32_t length) {
     return command.data_length;
 }
 
-int ipslr_get_transfer_status(ipslr_handle_t *p) {
+int pslr_get_transfer_status(pslr_handle_t h) {
+    DPRINT("[C]\t\tplsr_get_transfer_status()\n");
     pslr_command_t command;
     command_init(&command);
-    command.handle = p;
+    command.handle = (ipslr_handle_t*) h;
     command.c0 = 0x06;
     command.c1 = 0x04;
     command.read_result = true;
@@ -94,15 +96,16 @@ int ipslr_get_transfer_status(ipslr_handle_t *p) {
 
 /*  ------------------------------------------------------------    */
 
-int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf) {
+int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf) {
     DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, length);
     // uint32_t length_start = length;
 
     int retry = 0;
-    while (length > 0) {
-        uint32_t block = (length > BLOCK_SIZE) ? BLOCK_SIZE : length;
-        ipslr_request_download(p, address, block);
-        int ret = ipslr_do_download(p, buf, block);
+    int offset = 0;
+    while ((length - offset) > 0) {
+        uint32_t block = ((length - offset) > BLOCK_SIZE) ? BLOCK_SIZE : (length - offset);
+        pslr_request_download(h, address + offset, block);
+        int ret = pslr_do_download(h, buf + offset, block);
         if (ret < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
@@ -110,12 +113,7 @@ int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t 
             }
             return PSLR_READ_ERROR;
         }
-
-        //  shift pointers
-        buf += ret;
-        length -= ret;
-        address += ret;
-        //  clear retry counter
+        offset += ret;
         retry = 0;
 
         //  callback
@@ -127,15 +125,16 @@ int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t 
     return PSLR_OK;
 }
 
-int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf) {
+int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf) {
     DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, length);
     // uint32_t length_start = length;
 
     int retry = 0;
-    while (length > 0) {
-        uint32_t block = (length > BLOCK_SIZE) ? BLOCK_SIZE : length;
-        ipslr_request_upload(p, address, block);
-        int ret = ipslr_do_upload(p, buf, block);
+    int offset = 0;
+    while ((length - offset) > 0) {
+        uint32_t block = ((length - offset) > BLOCK_SIZE) ? BLOCK_SIZE : (length - offset);
+        pslr_request_upload(h, address + offset, block);
+        int ret = pslr_do_upload(h, buf + offset, block);
         if (ret < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
@@ -143,13 +142,7 @@ int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *b
             }
             return PSLR_READ_ERROR;
         }
-
-        //  shift pointers
-        buf += ret;
-        length -= ret;
-        address += ret;
-
-        //  clear retry counter
+        offset += ret;
         retry = 0;
 
         //  callback
@@ -159,9 +152,4 @@ int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *b
     }
 
     return PSLR_OK;
-}
-
-int plsr_get_transfer_status(ipslr_handle_t *p) {
-    DPRINT("[C]\t\tplsr_get_transfer_status()\n");
-    return ipslr_get_transfer_status(p);
 }

@@ -21,10 +21,17 @@
 #define PSLR_COMMAND_H
 
 #include <stdint.h>
-#include "pslr_model.h"
+#include "pslr.h"
 
-int pslr_download(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf);
-int pslr_upload(ipslr_handle_t *p, uint32_t address, uint32_t length, uint8_t *buf);
-int plsr_get_transfer_status(ipslr_handle_t *p);
+int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length);
+int pslr_do_download(pslr_handle_t h, uint8_t* buf, int32_t length);
+int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length);
+int pslr_do_upload(pslr_handle_t h, uint8_t* buf, int32_t length);
+int pslr_get_transfer_status(pslr_handle_t h);
+
+/*  ------------------------------------------------------------    */
+
+int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf);
+int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf);
 
 #endif // PSLR_COMMAND_H
