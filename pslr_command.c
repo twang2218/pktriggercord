@@ -36,23 +36,25 @@
 
 /**************** Command Group 00 ****************/
 
-int pslr_get_short_status(pslr_handle_t h, uint8_t *buf) {
+int pslr_get_short_status(pslr_handle_t h, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_short_status()\n");
     pslr_command_t command;
     command_init(&command, h, 0x00, 0x01);
-    command.read_result = true;
-    command.data = buf;
-    return generic_command(&command);
+    command_load_from_data(&command, data);
+    int ret = generic_command(&command);
+    command_save_to_data(&command, data);
+    return ret;
 }
 
-int pslr_get_full_status(pslr_handle_t h, uint8_t *buf) {
+int pslr_get_full_status(pslr_handle_t h, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_full_status()\n");
     pslr_command_t command;
     command_init(&command, h, 0x00, 0x08);
-    command.read_result = true;
-    command.data = buf;
+    command_load_from_data(&command, data);
+    int ret = generic_command(&command);
+    command_save_to_data(&command, data);
     //  TODO: parse the status data later;
-    return generic_command(&command);
+    return ret;
 }
 
 int pslr_dsp_task_wu_req(pslr_handle_t h, uint32_t mode) {
@@ -73,15 +75,17 @@ int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length) {
     return generic_command(&command);
 }
 
-int pslr_do_download(pslr_handle_t h, uint8_t *buf, int32_t length) {
-    DPRINT("[C]\t\tpslr_do_download(0x%x)\n", length);
+int pslr_do_download(pslr_handle_t h, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_do_download(0x%x)\n", data->length);
     pslr_command_t command;
     command_init(&command, h, 0x06, 0x02);
+    command_load_from_data(&command, data);
+    //  the data will be returned from SCSI_READ, rather separate commands.
+    command.read_result = false;
     command.direction = SCSI_READ;
-    command.data = buf;
-    command.data_length = length;
-    generic_command(&command);
-    return command.data_length;
+    int ret = generic_command(&command);
+    command_save_to_data(&command, data);
+    return ret;
 }
 
 int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length) {
@@ -93,22 +97,26 @@ int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length) {
     return generic_command(&command);
 }
 
-int pslr_do_upload(pslr_handle_t h, uint8_t *buf, int32_t length) {
-    DPRINT("[C]\t\tpslr_do_upload(0x%x)\n", length);
+int pslr_do_upload(pslr_handle_t h, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_do_upload(0x%x)\n", data->length);
     pslr_command_t command;
     command_init(&command, h, 0x06, 0x03);
-    command.data = buf;
-    command.data_length = length;
-    generic_command(&command);
-    return command.data_length;
+    command_load_from_data(&command, data);
+    //  the buffer is used for sending data, not receiving.
+    command.read_result = false;
+    int ret = generic_command(&command);
+    command_save_to_data(&command, data);
+    return ret;
 }
 
-int pslr_get_transfer_status(pslr_handle_t h) {
+int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data) {
     DPRINT("[C]\t\tplsr_get_transfer_status()\n");
     pslr_command_t command;
     command_init(&command, h, 0x06, 0x04);
-    command.read_result = true;
-    return generic_command(&command);
+    command_load_from_data(&command, data);
+    int ret = generic_command(&command);
+    command_save_to_data(&command, data);
+    return ret;
 }
 
 /**************** Command Group 23 ****************/
@@ -130,17 +138,14 @@ int pslr_set_adj_mode_flag(pslr_handle_t h, uint32_t mode, uint32_t value) {
     return generic_command(&command);
 }
 
-int pslr_get_adj_mode_flag(pslr_handle_t h, uint32_t mode, uint8_t *buf) {
+int pslr_get_adj_mode_flag(pslr_handle_t h, uint32_t mode, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_adj_mode_flag(%d)\n", mode);
     pslr_command_t command;
     command_init(&command, h, 0x23, 0x05);
     command_add_arg(&command, mode);
-    command.read_result = true;
-    command.data = buf;
+    command_load_from_data(&command, data);
     int ret = generic_command(&command);
-    if (buf == NULL) {
-        command_free(&command);
-    }
+    command_save_to_data(&command, data);
     return ret;
 }
 
@@ -162,40 +167,39 @@ int pslr_set_adj_data(pslr_handle_t h, uint32_t mode, bool debug_mode) {
     return generic_command(&command);
 }
 
-int pslr_get_adj_data(pslr_handle_t h, uint32_t mode, uint8_t *buf) {
+int pslr_get_adj_data(pslr_handle_t h, uint32_t mode, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_adj_data(%d)\n", mode);
     pslr_command_t command;
     command_init(&command, h, 0x23, 0x07);
     command_add_arg(&command, mode);
-    command.read_result = true;
-    command.data = buf;
+    command_load_from_data(&command, data);
     int ret = generic_command(&command);
-    if (buf == NULL) {
-        command_free(&command);
-    }
+    command_save_to_data(&command, data);
     return ret;
 }
 
 /**************** Composite Commands ****************/
 
-int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf) {
-    DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, length);
+int pslr_download(pslr_handle_t h, uint32_t address, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, data->length);
     // uint32_t length_start = length;
 
     int retry = 0;
     int offset = 0;
-    while ((length - offset) > 0) {
-        uint32_t block = ((length - offset) > BLOCK_SIZE) ? BLOCK_SIZE : (length - offset);
+    pslr_data_t tempdata;
+    while ((tempdata.length = data->length - offset) > 0) {
+        tempdata.data = data->data + offset;
+        uint32_t block = (tempdata.length > BLOCK_SIZE) ? BLOCK_SIZE : tempdata.length;
         pslr_request_download(h, address + offset, block);
-        int ret = pslr_do_download(h, buf + offset, block);
-        if (ret < 0) {
+        pslr_do_download(h, &tempdata);
+        if (tempdata.length < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
                 continue;
             }
             return PSLR_READ_ERROR;
         }
-        offset += ret;
+        offset += tempdata.length;
         retry = 0;
 
         //  callback
@@ -207,24 +211,26 @@ int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *b
     return PSLR_OK;
 }
 
-int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf) {
-    DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, length);
+int pslr_upload(pslr_handle_t h, uint32_t address, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, data->length);
     // uint32_t length_start = length;
 
     int retry = 0;
     int offset = 0;
-    while ((length - offset) > 0) {
-        uint32_t block = ((length - offset) > BLOCK_SIZE) ? BLOCK_SIZE : (length - offset);
+    pslr_data_t tempdata;
+    while ((tempdata.length = data->length - offset) > 0) {
+        tempdata.data = data->data + offset;
+        uint32_t block = (tempdata.length > BLOCK_SIZE) ? BLOCK_SIZE : tempdata.length;
         pslr_request_upload(h, address + offset, block);
-        int ret = pslr_do_upload(h, buf + offset, block);
-        if (ret < 0) {
+        pslr_do_upload(h, &tempdata);
+        if (tempdata.length < 0) {
             if (retry < BLOCK_RETRY) {
                 retry++;
                 continue;
             }
             return PSLR_READ_ERROR;
         }
-        offset += ret;
+        offset += tempdata.length;
         retry = 0;
 
         //  callback

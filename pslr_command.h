@@ -20,32 +20,31 @@
 #ifndef PSLR_COMMAND_H
 #define PSLR_COMMAND_H
 
-#include <stdint.h>
-#include "pslr.h"
+#include "pslr_common.h"
 
 /*  ------------------------------------------------------------    */
 
 //  Group 00
-int pslr_get_short_status(pslr_handle_t h, uint8_t *buf);
-int pslr_get_full_status(pslr_handle_t h, uint8_t *buf);
+int pslr_get_short_status(pslr_handle_t h, pslr_data_t *data);
+int pslr_get_full_status(pslr_handle_t h, pslr_data_t *data);
 int pslr_dsp_task_wu_req(pslr_handle_t h, uint32_t mode);
 //  Group 06
 int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length);
-int pslr_do_download(pslr_handle_t h, uint8_t* buf, int32_t length);
+int pslr_do_download(pslr_handle_t h, pslr_data_t *data);
 int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length);
-int pslr_do_upload(pslr_handle_t h, uint8_t* buf, int32_t length);
-int pslr_get_transfer_status(pslr_handle_t h);
+int pslr_do_upload(pslr_handle_t h, pslr_data_t *data);
+int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data);
 //  Group 23
 int pslr_write_adj_data(pslr_handle_t h, uint32_t value);
 int pslr_set_adj_mode_flag(pslr_handle_t h, uint32_t mode, uint32_t value);
-int pslr_get_adj_mode_flag(pslr_handle_t h, uint32_t mode, uint8_t *buf);
+int pslr_get_adj_mode_flag(pslr_handle_t h, uint32_t mode, pslr_data_t *data);
 int pslr_set_adj_data(pslr_handle_t h, uint32_t mode, bool debug_mode);
-int pslr_get_adj_data(pslr_handle_t h, uint32_t mode, uint8_t *buf);
+int pslr_get_adj_data(pslr_handle_t h, uint32_t mode, pslr_data_t *data);
 
 /*  ------------------------------------------------------------    */
 
-int pslr_download(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf);
-int pslr_upload(pslr_handle_t h, uint32_t address, uint32_t length, uint8_t *buf);
+int pslr_download(pslr_handle_t h, uint32_t address, pslr_data_t *data);
+int pslr_upload(pslr_handle_t h, uint32_t address, pslr_data_t *data);
 int pslr_set_debug_mode(pslr_handle_t h, bool debug_mode);
 
 #endif // PSLR_COMMAND_H

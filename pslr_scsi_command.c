@@ -247,3 +247,24 @@ void command_free(pslr_command_t *command) {
 void command_add_arg(pslr_command_t *command, uint32_t value) {
     command->args[command->args_count++] = value;
 }
+
+void command_load_from_data(pslr_command_t *command, pslr_data_t *data) {
+    command->read_result = true;
+    if (data != NULL) {
+        command->data = data->data;
+        command->data_length = data->length;
+    }
+}
+
+void command_save_to_data(pslr_command_t *command, pslr_data_t *data) {
+    if (data != NULL) {
+        if (data->data == NULL) {
+            //  caller didn't allocate the memory
+            data->data = command->data;
+        }
+        data->length = command->data_length;
+    } else {
+        //  the data will not returned to caller, so free it
+        command_free(command);
+    }
+}

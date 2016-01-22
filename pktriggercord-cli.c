@@ -909,13 +909,15 @@ int debug_download(pslr_handle_t h, uint32_t address, uint32_t length, const cha
   }
 
   //  Download the memory
-  uint8_t* buf = (uint8_t*) malloc(length);  
-  int ret = pslr_download(h, address, length, buf);
+  pslr_data_t data;
+  data.data = (uint8_t*) malloc(length);
+  data.length = length;
+  int ret = pslr_download(h, address, &data);
   if (ret != PSLR_OK) {
     fprintf(stderr, "pslr_download() error.\n");
     return 0;
   } else {
-    ssize_t r = write(fd, buf, length);
+    ssize_t r = write(fd, data.data, data.length);
     if (r == 0) {
         DPRINT("write(buf): Nothing has been written to buf.\n");
     } else if (r == -1) {
@@ -949,33 +951,34 @@ int debug_upload(pslr_handle_t h, uint32_t address, const char* filename)
   }
 
   //  Load file content
+  pslr_data_t data;
   //    get file size
   fseek(fp, 0, SEEK_END);
-  long size = ftell(fp);
+  data.length = ftell(fp);
   rewind(fp);
 
   //    allocate buffer
-  uint8_t* buffer = (uint8_t*) malloc(size);
-  if (buffer == NULL){
+  data.data = (uint8_t*) malloc(data.length);
+  if (data.data == NULL){
     fputs("Memory error.", stderr);
     exit(2);
   }
 
   //    read content
-  int ret = fread(buffer, 1, size, fp);
-  if (ret != size) {
+  int ret = fread(data.data, 1, data.length, fp);
+  if (ret != data.length) {
     fputs ("Reading error",stderr);
     exit (3);
   }
 
-  ret = pslr_upload(h, address, size, buffer);
+  ret = pslr_upload(h, address, &data);
   if (ret != PSLR_OK) {
     fprintf(stderr, "pslr_upload() error.\n");
     return 0;
   }
 
   fclose(fp);
-  free(buffer);
+  free(data.data);
 
   return PSLR_OK;
 }
