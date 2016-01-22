@@ -72,7 +72,7 @@ int scsi_send_argument(pslr_command_t *command) {
     uint8_t cmd[8] = {0xf0, 0x4f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     int i;
 
-    DPRINT("[C]\t\t\tsend_argument");
+    DPRINT("[C]\t\t\t\tsend_argument");
     if (command->args_count > 0) {
         debug_print_arguments(command);
     }
@@ -111,7 +111,7 @@ int scsi_send_argument(pslr_command_t *command) {
 }
 
 int scsi_send_command(pslr_command_t *command) {
-    DPRINT("[C]\t\t\tscsi_send_command(command: [%02x %02x])\n", command->c0, command->c1);
+    DPRINT("[C]\t\t\t\tscsi_send_command(command: [%02x %02x])\n", command->c0, command->c1);
 
     uint8_t cmd[8] = {0xf0, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
@@ -134,7 +134,7 @@ int scsi_send_command(pslr_command_t *command) {
 }
 
 int scsi_get_status(pslr_command_t *command, pslr_status_t *status) {
-    DPRINT("[C]\t\t\tscsi_get_status()\n");
+    DPRINT("[C]\t\t\t\tscsi_get_status()\n");
     uint8_t cmd[8] = {0xf0, 0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t statusbuf[8];
 
@@ -176,7 +176,7 @@ int scsi_get_status(pslr_command_t *command, pslr_status_t *status) {
 }
 
 int scsi_read_result(pslr_command_t *command) {
-    DPRINT("[C]\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data_length);
+    DPRINT("[C]\t\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data_length);
     uint8_t cmd[8] = {0xf0, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     set_uint32_le(command->data_length, &cmd[4]);
@@ -231,7 +231,7 @@ void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t 
     memset(command, 0, sizeof(pslr_command_t));
     command->read_result = false;
     command->direction = SCSI_WRITE;
-    command->handle = (ipslr_handle_t*) h;
+    command->handle = (ipslr_handle_t *)h;
     command->c0 = c0;
     command->c1 = c1;
 }
@@ -244,9 +244,7 @@ void command_free(pslr_command_t *command) {
     }
 }
 
-void command_add_arg(pslr_command_t *command, uint32_t value) {
-    command->args[command->args_count++] = value;
-}
+void command_add_arg(pslr_command_t *command, uint32_t value) { command->args[command->args_count++] = value; }
 
 void command_load_from_data(pslr_command_t *command, pslr_data_t *data) {
     command->read_result = true;

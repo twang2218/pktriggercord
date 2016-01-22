@@ -23,12 +23,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-
 typedef struct {
-    uint8_t* data;
+    uint8_t *data;
     int32_t length;
 } pslr_data_t;
 
-typedef void* pslr_handle_t;
+typedef void *pslr_handle_t;
 
 #endif // PSLR_COMMON_H
