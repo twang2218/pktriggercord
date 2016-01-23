@@ -27,6 +27,7 @@
 #define MAX_ARGUMENTS 8
 
 typedef enum { SCSI_WRITE, SCSI_READ } scsi_direction_t;
+typedef enum { DATA_USAGE_NONE, DATA_USAGE_SCSI_WRITE, DATA_USAGE_SCSI_READ, DATA_USAGE_READ_RESULT } scsi_data_usage_t;
 
 typedef struct {
     ipslr_handle_t *handle;
@@ -34,21 +35,20 @@ typedef struct {
     uint8_t c1;
     uint8_t args_count;
     uint32_t args[MAX_ARGUMENTS];
-    bool read_result;
     uint8_t *data;
     int32_t data_length;
-    scsi_direction_t direction;
+    scsi_data_usage_t data_usage;
 } pslr_command_t;
 
 typedef struct {
     uint32_t length;
     uint8_t status[2];
-} pslr_status_t;
+} pslr_command_status_t;
 
 //  SCSI Commands
 int scsi_send_argument(pslr_command_t *command);
 int scsi_send_command(pslr_command_t *command);
-int scsi_get_status(pslr_command_t *command, pslr_status_t *status);
+int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status);
 int scsi_read_result(pslr_command_t *command);
 int generic_command(pslr_command_t *command);
 
@@ -56,7 +56,7 @@ int generic_command(pslr_command_t *command);
 void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t c1);
 void command_free(pslr_command_t *command);
 void command_add_arg(pslr_command_t *command, uint32_t value);
-void command_load_from_data(pslr_command_t *command, pslr_data_t *data);
+void command_load_from_data(pslr_command_t *command, pslr_data_t *data, scsi_data_usage_t usage);
 void command_save_to_data(pslr_command_t *command, pslr_data_t *data);
 
 #endif // PSLR_SCSI_COMMAND_H

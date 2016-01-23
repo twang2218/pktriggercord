@@ -119,7 +119,7 @@ int scsi_send_command(pslr_command_t *command) {
     cmd[3] = command->c1;
     cmd[4] = command->args_count;
 
-    if (command->direction == SCSI_READ && command->data != NULL && command->data_length > 0) {
+    if (command->data_usage == DATA_USAGE_SCSI_READ && command->data != NULL && command->data_length > 0) {
         int length = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data, command->data_length);
         if (length < 0) {
             DPRINT("\t\t\t\tscsi_read() error.\n");
@@ -133,7 +133,7 @@ int scsi_send_command(pslr_command_t *command) {
     return PSLR_OK;
 }
 
-int scsi_get_status(pslr_command_t *command, pslr_status_t *status) {
+int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
     DPRINT("[C]\t\t\t\tscsi_get_status()\n");
     uint8_t cmd[8] = {0xf0, 0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     uint8_t statusbuf[8];
@@ -154,7 +154,7 @@ int scsi_get_status(pslr_command_t *command, pslr_status_t *status) {
         status->status[0] = statusbuf[6];
         status->status[1] = statusbuf[7];
 
-        if (command->read_result && command->direction == SCSI_WRITE) {
+        if (command->data_usage == DATA_USAGE_READ_RESULT) {
             //  this command needs retrieve data later
             if (status->status[0] == 0x01)
                 break;
@@ -208,11 +208,11 @@ int generic_command(pslr_command_t *command) {
     CHECK(scsi_send_command(command));
 
     //  Check Status
-    pslr_status_t status;
+    pslr_command_status_t status;
     CHECK(scsi_get_status(command, &status));
 
     //  Read result
-    if (command->direction == SCSI_WRITE && command->read_result) {
+    if (command->data_usage == DATA_USAGE_READ_RESULT) {
         //  This means, the result should be read in another scsi command
         if (command->data == NULL) {
             //  In many cases, the data length is only known by this point from
@@ -229,11 +229,10 @@ int generic_command(pslr_command_t *command) {
 
 void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t c1) {
     memset(command, 0, sizeof(pslr_command_t));
-    command->read_result = false;
-    command->direction = SCSI_WRITE;
     command->handle = (ipslr_handle_t *)h;
     command->c0 = c0;
     command->c1 = c1;
+    command->data_usage = DATA_USAGE_NONE;
 }
 
 void command_free(pslr_command_t *command) {
@@ -246,8 +245,8 @@ void command_free(pslr_command_t *command) {
 
 void command_add_arg(pslr_command_t *command, uint32_t value) { command->args[command->args_count++] = value; }
 
-void command_load_from_data(pslr_command_t *command, pslr_data_t *data) {
-    command->read_result = true;
+void command_load_from_data(pslr_command_t *command, pslr_data_t *data, scsi_data_usage_t usage) {
+    command->data_usage = usage;
     if (data != NULL) {
         command->data = data->data;
         command->data_length = data->length;
