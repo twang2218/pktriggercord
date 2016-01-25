@@ -140,7 +140,7 @@ int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
 
     memset((uint8_t *)status, 0, sizeof(status));
 
-    while (1) {
+    while (true) {
         memset(statusbuf, 0, sizeof(statusbuf));
 
         int n = scsi_read(command->handle->fd, cmd, sizeof(cmd), statusbuf, sizeof(statusbuf));
@@ -160,7 +160,9 @@ int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
                 break;
         } else {
             //  make sure the command finished running
-            if ((status->status[1] & 0x01) == 0)
+            //  TODO: As we have 0x81 error, I don't think it's bitfield, just a value
+            // if ((status->status[1] & 0x01) == 0)
+            if (status->status[1] != 0x01)
                 break;
         }
         usleep(POLL_INTERVAL);
@@ -169,7 +171,7 @@ int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
     if ((status->status[1] & 0xff) != 0) {
         DPRINT("\tERROR: Code: [0x%02x 0x%02x], Length: 0x%08x\n", status->status[0], status->status[1],
                status->length);
-        return -1;
+        return PSLR_COMMAND_ERROR;
     } else {
         return PSLR_OK;
     }

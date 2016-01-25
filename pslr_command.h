@@ -23,6 +23,15 @@
 #include "pslr_common.h"
 #include "pslr_enum.h"
 
+#define POLL_INTERVAL 100000 /* Number of us to wait when polling */
+
+typedef struct {
+    uint32_t a;
+    uint32_t b;
+    uint32_t addr;
+    uint32_t length;
+} pslr_buffer_segment_info_t;
+
 /*  ------------------------------------------------------------    */
 
 //  Group 0x00
@@ -30,8 +39,16 @@ int pslr_set_mode(pslr_handle_t h, uint32_t mode);
 int pslr_get_short_status(pslr_handle_t h, pslr_data_t *data);
 int pslr_identify(pslr_handle_t h);
 int pslr_connect_legacy(pslr_handle_t h);
-int pslr_get_full_status(pslr_handle_t h, pslr_data_t *data);
+int pslr_get_full_status(pslr_handle_t h);
 int pslr_dsp_task_wu_req(pslr_handle_t h, uint32_t mode);
+//  Group 0x02
+int pslr_get_buffer_status(pslr_handle_t h, pslr_data_t *data);
+int pslr_select_buffer(pslr_handle_t h, uint32_t buffer_number, pslr_buffer_type_t buffer_type,
+                       uint32_t buffer_resolution);
+int pslr_delete_buffer(pslr_handle_t h, uint32_t buffer_number);
+//  Group 0x04
+int pslr_get_buffer_segment_info(pslr_handle_t h, pslr_buffer_segment_info_t *info);
+int pslr_next_buffer_segment(pslr_handle_t h);
 //  Group 0x06
 int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length);
 int pslr_do_download(pslr_handle_t h, pslr_data_t *data);
@@ -46,6 +63,7 @@ int pslr_do_connect(pslr_handle_t h, bool connect);
 int pslr_continuous(pslr_handle_t h);
 int pslr_bulb(pslr_handle_t h, bool start);
 int pslr_dust_removal(pslr_handle_t h);
+int pslr_button_test(pslr_handle_t h, uint8_t button_number, uint32_t arg);
 //  Group 0x18
 int pslr_set_exposure_mode(pslr_handle_t h, pslr_exposure_mode_t exposure_mode);
 int pslr_set_ae_metering_mode(pslr_handle_t h, pslr_ae_metering_t ae_metering_mode);

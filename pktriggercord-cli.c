@@ -845,7 +845,7 @@ int main(int argc, char **argv) {
 
 int save_buffer(pslr_handle_t camhandle, int bufno, int fd, pslr_status *status, user_file_format filefmt, int jpeg_stars) {
 
-    pslr_buffer_type imagetype;
+    pslr_buffer_type_t imagetype;
     uint8_t buf[65536];
     uint32_t length;
     uint32_t current;

@@ -197,6 +197,18 @@ typedef enum {
     PSLR_IMAGE_FORMAT_MAX
 } pslr_image_format_t;
 
+typedef enum {
+    PSLR_BUF_PEF,
+    PSLR_BUF_DNG,
+    PSLR_BUF_JPEG_4, // only for cameras supporting 4* mode ?
+    PSLR_BUF_JPEG_3,
+    PSLR_BUF_JPEG_2,
+    PSLR_BUF_JPEG_1,
+    PSLR_BUF_PREVIEW = 8,
+    PSLR_BUF_THUMBNAIL = 9 // 7 works also
+} pslr_buffer_type_t;
+
+
 int str_comparison_i(const char *s1, const char *s2, int n);
 int find_in_array(const char **array, int length, char *str);
 

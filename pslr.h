@@ -44,17 +44,6 @@
 #define PSLR_LIGHT_METER_AE_LOCK 0x8
 
 typedef enum {
-    PSLR_BUF_PEF,
-    PSLR_BUF_DNG,
-    PSLR_BUF_JPEG_4, // only for cameras supporting 4* mode ?
-    PSLR_BUF_JPEG_3,
-    PSLR_BUF_JPEG_2,
-    PSLR_BUF_JPEG_1,
-    PSLR_BUF_PREVIEW = 8,
-    PSLR_BUF_THUMBNAIL = 9 // 7 works also
-} pslr_buffer_type;
-
-typedef enum {
     USER_FILE_FORMAT_PEF,
     USER_FILE_FORMAT_DNG,
     USER_FILE_FORMAT_JPEG,
@@ -79,13 +68,6 @@ typedef enum {
 
 typedef void *pslr_handle_t;
 
-typedef struct {
-    uint32_t a;
-    uint32_t b;
-    uint32_t addr;
-    uint32_t length;
-} pslr_buffer_segment_info;
-
 typedef void (*pslr_progress_callback_t)(uint32_t current, uint32_t total);
 
 void sleep_sec(double sec);
@@ -99,7 +81,7 @@ int pslr_get_status_buffer(pslr_handle_t h, uint8_t *st_buf);
 
 char *collect_status_info( pslr_handle_t h, pslr_status status );
 
-int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type type, int resolution,
+int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type_t type, int resolution,
                     uint8_t **pdata, uint32_t *pdatalen);
 
 int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb,
@@ -108,11 +90,7 @@ int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb,
 int pslr_set_user_file_format(pslr_handle_t h, user_file_format uff);
 user_file_format get_user_file_format( pslr_status *st );
 
-int pslr_delete_buffer(pslr_handle_t h, int bufno);
-
-int pslr_button_test(pslr_handle_t h, int bno, int arg);
-
-int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type type, int resolution);
+int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type_t type, int resolution);
 uint32_t pslr_buffer_read(pslr_handle_t h, uint8_t *buf, uint32_t size);
 void pslr_buffer_close(pslr_handle_t h);
 uint32_t pslr_buffer_get_size(pslr_handle_t h);
@@ -133,7 +111,7 @@ bool pslr_get_model_has_jpeg_hue(pslr_handle_t h);
 bool pslr_get_model_need_exposure_conversion(pslr_handle_t h);
 pslr_jpeg_image_tone_t pslr_get_model_max_supported_image_tone(pslr_handle_t h);
 
-pslr_buffer_type pslr_get_jpeg_buffer_type(pslr_handle_t h, int quality);
+pslr_buffer_type_t pslr_get_jpeg_buffer_type(pslr_handle_t h, int quality);
 int pslr_get_jpeg_resolution(pslr_handle_t h, int hwres);
 
 char *format_rational( pslr_rational_t rational, char * fmt );

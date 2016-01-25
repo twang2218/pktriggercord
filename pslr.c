@@ -51,10 +51,9 @@
 #include "pslr_scsi.h"
 #include "pslr_lens.h"
 
-#define POLL_INTERVAL 100000 /* Number of us to wait when polling */
 #define BLKSZ 65536  /* Block size for downloads; if too big, we get
                      * memory allocation error from sg driver */
-#define BLOCK_SIZE 0x200 /* 0x10000 */
+#define BLOCK_SIZE 0x200 /* TODO: 0x10000 */
 #define BLOCK_RETRY 3 /* Number of retries, since we can occasionally
                        * get SCSI errors when downloading data */
 
@@ -76,19 +75,6 @@ void sleep_sec(double sec) {
 }
 
 ipslr_handle_t pslr;
-
-static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status);
-static int ipslr_select_buffer(ipslr_handle_t *p, int bufno, pslr_buffer_type buftype, int bufres);
-static int ipslr_buffer_segment_info(ipslr_handle_t *p, pslr_buffer_segment_info *pInfo);
-static int ipslr_next_segment(ipslr_handle_t *p);
-static int _ipslr_write_args(uint8_t cmd_2, ipslr_handle_t *p, int n, ...);
-#define ipslr_write_args(p,n,...) _ipslr_write_args(0,(p),(n),__VA_ARGS__)
-#define ipslr_write_args_special(p,n,...) _ipslr_write_args(4,(p),(n),__VA_ARGS__)
-
-static int command(int fd, int a, int b, int c);
-static int get_status(int fd);
-static int get_result(int fd);
-static int read_result(int fd, uint8_t *buf, uint32_t n);
 
 void hexdump(uint8_t *buf, uint32_t bufLen);
 
@@ -217,7 +203,7 @@ int pslr_get_status(pslr_handle_t h, pslr_status *ps) {
     DPRINT("[C]\tpslr_get_status()\n");
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     memset( ps, 0, sizeof( pslr_status ));
-    CHECK(ipslr_status_full(p, &p->status));
+    CHECK(pslr_get_full_status(p));
     memcpy(ps, &p->status, sizeof (pslr_status));
     return PSLR_OK;
 }
@@ -308,12 +294,12 @@ int pslr_get_status_buffer(pslr_handle_t h, uint8_t *st_buf) {
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     memset( st_buf, 0, MAX_STATUS_BUF_SIZE);
 //    CHECK(ipslr_status_full(p, &p->status));
-    ipslr_status_full(p, &p->status);
+    pslr_get_full_status(p);
     memcpy(st_buf, p->status_buffer, MAX_STATUS_BUF_SIZE);
     return PSLR_OK;
 }
 
-int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type type, int resolution,
+int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type_t type, int resolution,
         uint8_t **ppData, uint32_t *pLen) {
     DPRINT("[C]\tpslr_get_buffer()\n");
     uint8_t *buf = 0;
@@ -366,32 +352,9 @@ int pslr_get_jpeg_resolution(pslr_handle_t h, int hwres) {
     return _get_user_jpeg_resolution( p->model, hwres );
 }
 
-int pslr_delete_buffer(pslr_handle_t h, int bufno) {
-    DPRINT("[C]\tpslr_delete_buffer(%X)\n", bufno);
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    if (bufno < 0 || bufno > 9)
-        return PSLR_PARAM;
-    CHECK(ipslr_write_args(p, 1, bufno));
-    CHECK(command(p->fd, 0x02, 0x03, 0x04));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-int pslr_button_test(pslr_handle_t h, int bno, int arg) {
-    DPRINT("[C]\tpslr_button_test(%X, %X)\n", bno, arg);
-    int r;
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    CHECK(ipslr_write_args(p, 1, arg));
-    CHECK(command(p->fd, 0x10, bno, 4));
-    r = get_status(p->fd);
-    DPRINT("\tbutton result code: 0x%x\n", r);
-    return PSLR_OK;
-}
-
-
-int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int bufres) {
+int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type_t buftype, int bufres) {
     DPRINT("[C]\tpslr_buffer_open(#%X, type=%X, res=%X)\n", bufno, buftype, bufres);
-    pslr_buffer_segment_info info;
+    pslr_buffer_segment_info_t info;
     uint16_t bufs;
     uint32_t buf_total = 0;
     int i, j;
@@ -403,7 +366,7 @@ int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int b
 
     memset(&info, 0, sizeof (info));
 
-    CHECK(ipslr_status_full(p, &p->status));
+    CHECK(pslr_get_full_status(p));
     bufs = p->status.bufmask;
     DPRINT("\tp->status.bufmask = %x\n", p->status.bufmask);
 
@@ -417,7 +380,7 @@ int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int b
         /* If we get response 0x82 from the camera, there is a
          * desynch. We can recover by stepping through segment infos
          * until we get the last one (b = 2). Retry up to 3 times. */
-        ret = ipslr_select_buffer(p, bufno, buftype, bufres);
+        ret = pslr_select_buffer(h, bufno, buftype, bufres);
         if (ret == PSLR_OK)
             break;
 
@@ -426,8 +389,8 @@ int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int b
         /* Try up to 9 times to reach segment info type 2 (last
          * segment) */
         do {
-            CHECK(ipslr_buffer_segment_info(p, &info));
-            CHECK(ipslr_next_segment(p));
+            CHECK(pslr_get_buffer_segment_info(h, &info));
+            CHECK(pslr_next_buffer_segment(h));
             DPRINT("\tRecover: b=%d\n", info.b);
         } while (++retry2 < 10 && info.b != 2);
     }
@@ -438,7 +401,7 @@ int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int b
     i = 0;
     j = 0;
     do {
-        CHECK(ipslr_buffer_segment_info(p, &info));
+        CHECK(pslr_get_buffer_segment_info(h, &info));
         DPRINT("\t%d: Addr: 0x%X Len: %d(0x%08X) B=%d\n", i, info.addr, info.length, info.length, info.b);
         if (info.b == 4)
             p->segments[j].offset = info.length;
@@ -451,7 +414,7 @@ int pslr_buffer_open(pslr_handle_t h, int bufno, pslr_buffer_type buftype, int b
             p->segments[j].length = info.length;
             j++;
         }
-        CHECK(ipslr_next_segment(p));
+        CHECK(pslr_next_buffer_segment(h));
         buf_total += info.length;
         i++;
     } while (i < 9 && info.b != 2);
@@ -602,7 +565,7 @@ const char *pslr_camera_name(pslr_handle_t h) {
     }
 }
 
-pslr_buffer_type pslr_get_jpeg_buffer_type(pslr_handle_t h, int jpeg_stars) {
+pslr_buffer_type_t pslr_get_jpeg_buffer_type(pslr_handle_t h, int jpeg_stars) {
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     return 2 + get_hw_jpeg_quality( p->model, jpeg_stars );
 }
@@ -617,14 +580,14 @@ int pslr_connect(pslr_handle_t h) {
     pslr_get_short_status(h, NULL);
 
     pslr_identify(h);
-    pslr_get_full_status(h, NULL);
+    pslr_get_full_status(h);
 
     pslr_dsp_task_wu_req(h, 2);
-    pslr_get_full_status(h, NULL);
+    pslr_get_full_status(h);
 
     pslr_do_connect(h, true);
     pslr_connect_legacy(h);
-    pslr_get_full_status(h, NULL);
+    pslr_get_full_status(h);
 
     return PSLR_OK;
 }
@@ -717,270 +680,6 @@ int pslr_set_debug_mode(pslr_handle_t h, bool debug_mode) {
     pslr_dsp_task_wu_req(h, 2);
     pslr_get_short_status(h, NULL);
 
-    return PSLR_OK;
-}
-
-/* ----------------------------------------------------------------------- */
-
-static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status) {
-    int n;
-    DPRINT("[C]\t\tipslr_status_full()\n");
-    CHECK(command(p->fd, 0, 8, 0));
-    n = get_result(p->fd);
-    DPRINT("\tread %d bytes\n", n);
-    int expected_bufsize = p->model != NULL ? p->model->buffer_size : 0;
-    if( p->model == NULL ) {
-      DPRINT("\tp model null\n");
-    }
-    DPRINT("\texpected_bufsize: %d\n",expected_bufsize);
-
-    CHECK(read_result(p->fd, p->status_buffer, n > MAX_STATUS_BUF_SIZE ? MAX_STATUS_BUF_SIZE: n));
-
-    if( expected_bufsize == 0 || !p->model->parser_function ) {
-        // limited support only
-        return PSLR_OK;
-    } else if( expected_bufsize > 0 && expected_bufsize != n ) {
-        DPRINT("\tWaiting for %d bytes but got %d\n", expected_bufsize, n);
-        return PSLR_READ_ERROR;
-    } else {
-        // everything OK
-        (*p->model->parser_function)(p, status);
-	if( p->model->need_exposure_mode_conversion ) {
-            status->exposure_mode = exposure_mode_conversion( status->exposure_mode );
-	}
-        return PSLR_OK;
-    }
-}
-
-static int ipslr_select_buffer(ipslr_handle_t *p, int bufno, pslr_buffer_type buftype, int bufres) {
-    int r;
-    DPRINT("\t\tSelect buffer %d,%d,%d,0\n", bufno, buftype, bufres);
-    if( !p->model->old_scsi_command ) {
-        CHECK(ipslr_write_args(p, 4, bufno, buftype, bufres, 0));
-        CHECK(command(p->fd, 0x02, 0x01, 0x10));
-    } else {
-        /* older cameras: 3-arg select buffer */
-        CHECK(ipslr_write_args(p, 4, bufno, buftype, bufres));
-        CHECK(command(p->fd, 0x02, 0x01, 0x0c));
-    }
-    r = get_status(p->fd);
-    if (r != 0) {
-        return PSLR_COMMAND_ERROR;
-    }
-    return PSLR_OK;
-}
-
-static int ipslr_next_segment(ipslr_handle_t *p) {
-    DPRINT("[C]\t\tipslr_next_segment()\n");
-    int r;
-    CHECK(ipslr_write_args(p, 1, 0));
-    CHECK(command(p->fd, 0x04, 0x01, 0x04));
-    usleep(100000); // needed !! 100 too short, 1000 not short enough for PEF
-    r = get_status(p->fd);
-    if (r == 0)
-        return PSLR_OK;
-    return PSLR_COMMAND_ERROR;
-}
-
-static int ipslr_buffer_segment_info(ipslr_handle_t *p, pslr_buffer_segment_info *pInfo) {
-    DPRINT("[C]\t\tipslr_buffer_segment_info()\n");
-    uint8_t buf[16];
-    uint32_t n;
-    int num_try = 20;
-
-    pInfo->b = 0;
-    while( pInfo->b == 0 && --num_try > 0 ) {
-        CHECK(command(p->fd, 0x04, 0x00, 0x00));
-        n = get_result(p->fd);
-        if (n != 16) {
-            return PSLR_READ_ERROR;
-        }
-        CHECK(read_result(p->fd, buf, 16));
-
-        //  use the right function based on the endian.
-        get_uint32_func get_uint32_func_ptr;
-        if (p->model->is_little_endian) {
-            get_uint32_func_ptr = get_uint32_le;
-        } else {
-            get_uint32_func_ptr = get_uint32_be;
-        }
-
-        pInfo->a = (*get_uint32_func_ptr)(&buf[0]);
-        pInfo->b = (*get_uint32_func_ptr)(&buf[4]);
-        pInfo->addr = (*get_uint32_func_ptr)(&buf[8]);
-        pInfo->length = (*get_uint32_func_ptr)(&buf[12]);
-	if( pInfo-> b == 0 ) {
-	  DPRINT("\tWaiting for segment info addr: 0x%x len: %d B=%d\n", pInfo->addr, pInfo->length, pInfo->b);
-	  sleep_sec( 0.1 );
-	}
-    }
-    return PSLR_OK;
-}
-
-static int _ipslr_write_args(uint8_t cmd_2, ipslr_handle_t *p, int n, ...) {
-    va_list ap;
-    uint8_t cmd[8] = {0xf0, 0x4f, cmd_2, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t buf[4 * n];
-    int fd = p->fd;
-    int res;
-    int i;
-    uint32_t data;
-
-    // print debug info
-    va_start(ap, n);
-    DPRINT("[C]\t\t\t_ipslr_write_args(cmd_2 = 0x%x, {", cmd_2);
-    for (i = 0; i < n; i++) {
-        if (i > 0) {
-            DPRINT(", ");
-        }
-        DPRINT("0x%X", va_arg(ap, uint32_t));
-    }
-    DPRINT("})\n");
-    va_end(ap);
-
-    va_start(ap, n);
-    if( p->model && !p->model->old_scsi_command ) {
-        /* All at once */
-        for (i = 0; i < n; i++) {
-            data = va_arg(ap, uint32_t);
-
-            if (p->model == NULL || !p->model->is_little_endian) {
-                set_uint32_be(data, &buf[4*i]);
-            } else {
-                set_uint32_le(data, &buf[4*i]);
-            }
-        }
-        cmd[4] = 4 * n;
-
-
-        res = scsi_write(fd, cmd, sizeof (cmd), buf, 4 * n);
-        if (res != PSLR_OK) {
-            return res;
-	    }
-    } else {
-        /* Arguments one by one */
-        for (i = 0; i < n; i++) {
-            data = va_arg(ap, uint32_t);
-
-            if (p->model == NULL || !p->model->is_little_endian) {
-                set_uint32_be(data, &buf[0]);
-            } else {
-                set_uint32_le(data, &buf[0]);
-            }
-
-            cmd[4] = 4;
-            cmd[2] = i * 4;
-            res = scsi_write(fd, cmd, sizeof (cmd), buf, 4);
-            if (res != PSLR_OK) {
-                return res;
-	    }
-        }
-    }
-    va_end(ap);
-    return PSLR_OK;
-}
-
-/* ----------------------------------------------------------------------- */
-
-static int command(int fd, int a, int b, int c) {
-    DPRINT("[C]\t\t\tcommand(fd=%x, %x, %x, %x)\n", fd, a, b, c);
-    uint8_t cmd[8] = {0xf0, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
-    cmd[2] = a;
-    cmd[3] = b;
-    cmd[4] = c;
-
-    CHECK(scsi_write(fd, cmd, sizeof (cmd), 0, 0));
-    return PSLR_OK;
-}
-
-static int read_status(int fd, uint8_t *buf) {
-    uint8_t cmd[8] = {0xf0, 0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    int n;
-
-    n = scsi_read(fd, cmd, 8, buf, 8);
-    if (n != 8) {
-        DPRINT("\tOnly got %d bytes\n", n);
-        /* The *ist DS doesn't know to return the correct number of
-            read bytes for this command, so return PSLR_OK instead of
-            PSLR_READ_ERROR */
-        return PSLR_OK;
-    }
-    return PSLR_OK;
-}
-
-static int get_status(int fd) {
-    DPRINT("[C]\t\t\tget_status(0x%x)\n", fd);
-
-    uint8_t statusbuf[8];
-    memset(statusbuf,0,8);
-
-    while (1) {
-        //usleep(POLL_INTERVAL);
-        CHECK(read_status(fd, statusbuf));
-        if ((statusbuf[7] & 0x01) == 0)
-            break;
-        //DPRINT("Waiting for ready - ");
-        DPRINT("[R]\t\t\t\t => ERROR: 0x%02X\n", statusbuf[7]);
-        usleep(POLL_INTERVAL);
-    }
-    if ((statusbuf[7] & 0xff) != 0) {
-        DPRINT("\tERROR: 0x%x\n", statusbuf[7]);
-    }
-    return statusbuf[7];
-}
-
-static int get_result(int fd) {
-    DPRINT("[C]\t\t\tget_result(0x%x)\n", fd);
-    uint8_t statusbuf[8];
-    while (1) {
-        //DPRINT("read out status\n");
-        CHECK(read_status(fd, statusbuf));
-        //hexdump_debug(statusbuf, 8);
-        if (statusbuf[6] == 0x01)
-            break;
-        //DPRINT("Waiting for result\n");
-        //hexdump_debug(statusbuf, 8);
-        usleep(POLL_INTERVAL);
-    }
-    if ((statusbuf[7] & 0xff) != 0) {
-        DPRINT("\tERROR: 0x%x\n", statusbuf[7]);
-        return -1;
-    } else {
-        DPRINT("[R]\t\t\t\t => [%02X %02X %02X %02X]\n",
-            statusbuf[0], statusbuf[1], statusbuf[2], statusbuf[3]);
-    }
-    return statusbuf[0] | statusbuf[1] << 8 | statusbuf[2] << 16 | statusbuf[3] << 24;
-}
-
-static int read_result(int fd, uint8_t *buf, uint32_t n) {
-    DPRINT("[C]\t\t\tread_result(0x%x, size=%d)\n", fd, n);
-    uint8_t cmd[8] = {0xf0, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    int r;
-    int i;
-    set_uint32_le(n, &cmd[4]);
-    r = scsi_read(fd, cmd, sizeof (cmd), buf, n);
-    if (r != n) {
-        return PSLR_READ_ERROR;
-    }  else {
-        //  Print first 32 bytes of the result.
-        DPRINT("[R]\t\t\t\t => [");
-        for (i = 0; i < n && i < 32; ++i) {
-            if (i > 0) {
-                if (i % 16 == 0) {
-                    DPRINT("\n\t\t\t\t    ");
-                } else if ((i%4) == 0 ) {
-                    DPRINT(" ");
-                }
-                DPRINT(" ");
-            }
-            DPRINT("%02X", buf[i]);
-        }
-        if (n > 32) {
-            DPRINT(" ... (%d bytes more)", (n-32));
-        }
-        DPRINT("]\n");
-    }
     return PSLR_OK;
 }
 

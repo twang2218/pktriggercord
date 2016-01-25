@@ -1976,7 +1976,7 @@ static void save_buffer(int bufno, const char *filename)
     int quality;
     int resolution;
     int filefmt;
-    pslr_buffer_type imagetype;
+    pslr_buffer_type_t imagetype;
     uint8_t buf[65536];
     uint32_t length;
     uint32_t current;
