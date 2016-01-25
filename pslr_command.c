@@ -23,6 +23,7 @@
 
 #include "pslr_scsi_command.h"
 #include "pslr_command.h"
+#include "pslr.h"
 
 /* Block size for downloads; if too big, we get
  * memory allocation error from sg driver */
@@ -32,9 +33,58 @@
  * get SCSI errors when downloading data */
 #define BLOCK_RETRY 3
 
+/**************** Parse Functions ****************/
+
+static int parse_camera_model(pslr_handle_t h, uint8_t *data) {
+    ipslr_handle_t *p = (ipslr_handle_t *)h;
+    if (data[0] == 0) {
+        p->id = get_uint32_be(data);
+    } else {
+        p->id = get_uint32_le(data);
+    }
+    DPRINT("\t\t\tid of the camera: %x\n", p->id);
+    p->model = find_model_by_id(p->id);
+
+    if (!p->model) {
+        DPRINT("\nUnknown Pentax camera.\n");
+        return -1;
+    } else {
+        return PSLR_OK;
+    }
+}
+
+static int parse_full_status(pslr_handle_t h, pslr_data_t *data) {
+    ipslr_handle_t *p = (ipslr_handle_t *)h;
+    if (p->model == NULL) {
+        DPRINT("\t\t\tp->model is null.\n");
+    } else {
+        if (data->length > 0 && p->model->buffer_size != data->length) {
+            DPRINT("\t\t\tWaiting for %d bytes but got %d\n", p->model->buffer_size, data->length);
+            return PSLR_READ_ERROR;
+        }
+
+        memcpy(p->status_buffer, data->data, (data->length > MAX_STATUS_BUF_SIZE) ? MAX_STATUS_BUF_SIZE : data->length);
+
+        (*p->model->parser_function)(p, &p->status);
+        if (p->model->need_exposure_mode_conversion) {
+            p->status.exposure_mode = exposure_mode_conversion(p->status.exposure_mode);
+        }
+        DPRINT("\t\t\tbufmask=0x%x\n", p->status.bufmask);
+    }
+
+    return PSLR_OK;
+}
+
 /**************** Simple Commands ****************/
 
-/**************** Command Group 00 ****************/
+/**************** Command Group 0x00 ****************/
+int pslr_set_mode(pslr_handle_t h, uint32_t mode) {
+    DPRINT("[C]\t\tpslr_set_mode(%d)\n", mode);
+    pslr_command_t command;
+    command_init(&command, h, 0x00, 0x00);
+    command_add_arg(&command, mode);
+    return generic_command(&command);
+}
 
 int pslr_get_short_status(pslr_handle_t h, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_short_status()\n");
@@ -46,6 +96,27 @@ int pslr_get_short_status(pslr_handle_t h, pslr_data_t *data) {
     return ret;
 }
 
+int pslr_identify(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_identify()\n");
+    pslr_command_t command;
+    command_init(&command, h, 0x00, 0x04);
+    generic_command(&command);
+    return parse_camera_model(h, command.data);
+}
+
+int pslr_connect_legacy(pslr_handle_t h) {
+    ipslr_handle_t *p = (ipslr_handle_t *)h;
+    if (p->model->old_scsi_command) {
+        //  only for legacy cameras
+        DPRINT("[C]\t\tpslr_connect_legacy()\n");
+        pslr_command_t command;
+        command_init(&command, h, 0x00, 0x05);
+        return generic_command(&command);
+    } else {
+        return PSLR_OK;
+    }
+}
+
 int pslr_get_full_status(pslr_handle_t h, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_get_full_status()\n");
     pslr_command_t command;
@@ -53,18 +124,25 @@ int pslr_get_full_status(pslr_handle_t h, pslr_data_t *data) {
     command_load_from_data(&command, data, DATA_USAGE_READ_RESULT);
     int ret = generic_command(&command);
     command_save_to_data(&command, data);
-    //  TODO: parse the status data later;
+    parse_full_status(h, data);
     return ret;
 }
 
 int pslr_dsp_task_wu_req(pslr_handle_t h, uint32_t mode) {
-    pslr_command_t command;
-    command_init(&command, h, 0x00, 0x09);
-    command_add_arg(&command, mode);
-    return generic_command(&command);
+    ipslr_handle_t *p = (ipslr_handle_t *)h;
+    if (!p->model->old_scsi_command) {
+        DPRINT("[C]\t\tpslr_dsp_task_wu_req(%d)\n", mode);
+        pslr_command_t command;
+        command_init(&command, h, 0x00, 0x09);
+        command_add_arg(&command, mode);
+        return generic_command(&command);
+    } else {
+        //  not for legacy cameras
+        return PSLR_OK;
+    }
 }
 
-/**************** Command Group 06 ****************/
+/**************** Command Group 0x06 ****************/
 
 int pslr_request_download(pslr_handle_t h, uint32_t address, int32_t length) {
     DPRINT("[C]\t\tpslr_request_download(0x%08x, 0x%x)\n", address, length);
@@ -114,7 +192,17 @@ int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data) {
     return ret;
 }
 
-/**************** Command Group 23 ****************/
+/**************** Command Group 0x10 ****************/
+
+int pslr_do_connect(pslr_handle_t h, bool connect) {
+    DPRINT("[C]\t\tpslr_set_connect_mode(%d)\n", connect);
+    pslr_command_t command;
+    command_init(&command, h, 0x10, 0x0a);
+    command_add_arg(&command, (connect ? 1 : 0));
+    return generic_command(&command);
+}
+
+/**************** Command Group 0x23 ****************/
 
 int pslr_write_adj_data(pslr_handle_t h, uint32_t value) {
     DPRINT("[C]\t\tpslr_write_adj_data(%d)\n", value);
@@ -174,6 +262,41 @@ int pslr_get_adj_data(pslr_handle_t h, uint32_t mode, pslr_data_t *data) {
 }
 
 /**************** Composite Commands ****************/
+
+int pslr_connect(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_connect()\n");
+
+    pslr_get_short_status(h, NULL);
+    pslr_set_mode(h, 1);
+    pslr_get_short_status(h, NULL);
+
+    pslr_identify(h);
+    pslr_get_full_status(h, NULL);
+
+    pslr_dsp_task_wu_req(h, 2);
+    pslr_get_full_status(h, NULL);
+
+    pslr_do_connect(h, true);
+    pslr_connect_legacy(h);
+    pslr_get_full_status(h, NULL);
+
+    return PSLR_OK;
+}
+
+int pslr_disconnect(pslr_handle_t h) {
+    DPRINT("[C]\tpslr_disconnect()\n");
+    pslr_do_connect(h, false);
+    pslr_set_mode(h, 0);
+    pslr_get_short_status(h, NULL);
+    return PSLR_OK;
+}
+
+int pslr_shutdown(pslr_handle_t h) {
+    DPRINT("[C]\tpslr_shutdown()\n");
+    ipslr_handle_t *p = (ipslr_handle_t *)h;
+    close_drive(&p->fd);
+    return PSLR_OK;
+}
 
 int pslr_download(pslr_handle_t h, uint32_t address, pslr_data_t *data) {
     DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, data->length);
