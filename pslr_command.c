@@ -207,6 +207,20 @@ int pslr_shutter(pslr_handle_t h, bool fullpress) {
     return generic_command(&command);
 }
 
+int pslr_ae_lock(pslr_handle_t h, bool lock) {
+    DPRINT("[C]\t\tpslr_ae_lock()\n");
+    pslr_command_t command;
+    command_init(&command, h, 0x10, (lock ? 0x06: 0x08));
+    return generic_command(&command);
+}
+
+int pslr_green_button(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_green()\n");
+    pslr_command_t command;
+    command_init(&command, h, 0x10, 0x07);
+    return generic_command(&command);
+}
+
 int pslr_do_connect(pslr_handle_t h, bool connect) {
     DPRINT("[C]\t\tpslr_set_connect_mode(%s)\n", bool_string(connect));
     pslr_command_t command;
@@ -214,6 +228,30 @@ int pslr_do_connect(pslr_handle_t h, bool connect) {
     command_add_arg(&command, (connect ? 1 : 0));
     return generic_command(&command);
 }
+
+int pslr_continuous(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_continuous()\n");
+    pslr_command_t command;
+    command_init(&command, h, 0x10, 0x0c);
+    return generic_command(&command);
+}
+
+int pslr_bulb(pslr_handle_t h, bool start) {
+    DPRINT("[C]\t\tpslr_bulb()\n");
+    pslr_command_t command;
+    command_add_arg(&command, (start ? 1 : 0));
+    command_init(&command, h, 0x10, 0x0d);
+    return generic_command(&command);
+}
+
+int pslr_dust_removal(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_dust_removal()\n");
+    pslr_command_t command;
+    command_init(&command, h, 0x10, 0x11);
+    return generic_command(&command);
+}
+
+
 
 /**************** Command Group 0x23 ****************/
 

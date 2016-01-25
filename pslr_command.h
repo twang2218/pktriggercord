@@ -39,7 +39,12 @@ int pslr_do_upload(pslr_handle_t h, pslr_data_t *data);
 int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data);
 //  Group 0x10
 int pslr_shutter(pslr_handle_t h, bool fullpress);
+int pslr_ae_lock(pslr_handle_t h, bool lock);
+int pslr_green_button(pslr_handle_t h);
 int pslr_do_connect(pslr_handle_t h, bool connect);
+int pslr_continuous(pslr_handle_t h);
+int pslr_bulb(pslr_handle_t h, bool start);
+int pslr_dust_removal(pslr_handle_t h);
 //  Group 0x23
 int pslr_write_adj_data(pslr_handle_t h, uint32_t value);
 int pslr_set_adj_mode_flag(pslr_handle_t h, uint32_t mode, uint32_t value);

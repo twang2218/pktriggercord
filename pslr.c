@@ -149,29 +149,6 @@ typedef enum {
     X18_JPEG_HUE
 } x18_subcommands_t;
 
-// x10 subcommands for buttons
-// X10_n: unknown effect
-typedef enum {
-    X10_00,
-    X10_01,
-    X10_02,
-    X10_03,
-    X10_04,
-    X10_SHUTTER,
-    X10_AE_LOCK,
-    X10_GREEN,
-    X10_AE_UNLOCK,
-    X10_09,
-    X10_CONNECT,
-    X10_0B,
-    X10_CONTINUOUS,
-    X10_BULB,
-    X10_0E,
-    X10_0F,
-    X10_10,
-    X10_DUST
-} x10_subcommands_t;
-
 user_file_format_t *get_file_format_t( user_file_format uff ) {
     int i;
     for (i = 0; i<sizeof(file_formats) / sizeof(file_formats[0]); i++) {
@@ -679,31 +656,6 @@ int pslr_delete_buffer(pslr_handle_t h, int bufno) {
     return PSLR_OK;
 }
 
-int pslr_green_button(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_green_button()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    CHECK(command(p->fd, 0x10, X10_GREEN, 0x00));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-int pslr_dust_removal(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_dust_removal()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    CHECK(command(p->fd, 0x10, X10_DUST, 0x00));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-int pslr_bulb(pslr_handle_t h, bool on ) {
-    DPRINT("[C]\tpslr_bulb(%d)\n", on);
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    CHECK(ipslr_write_args(p, 1, on ? 1 : 0));
-    CHECK(command(p->fd, 0x10, X10_BULB, 0x04));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
 int pslr_button_test(pslr_handle_t h, int bno, int arg) {
     DPRINT("[C]\tpslr_button_test(%X, %X)\n", bno, arg);
     int r;
@@ -715,17 +667,6 @@ int pslr_button_test(pslr_handle_t h, int bno, int arg) {
     return PSLR_OK;
 }
 
-
-int pslr_ae_lock(pslr_handle_t h, bool lock) {
-    DPRINT("[C]\tpslr_ae_lock(%X)\n", lock);
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    if (lock)
-        CHECK(command(p->fd, 0x10, X10_AE_LOCK, 0x00));
-    else
-        CHECK(command(p->fd, 0x10, X10_AE_UNLOCK, 0x00));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
 
 int pslr_set_exposure_mode(pslr_handle_t h, pslr_exposure_mode_t mode) {
     DPRINT("[C]\tpslr_set_exposure_mode(%X)\n", mode);
