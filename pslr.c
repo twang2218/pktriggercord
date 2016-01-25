@@ -54,9 +54,9 @@
 #include "pslr_command.h"
 
 #define POLL_INTERVAL 100000 /* Number of us to wait when polling */
-#define BLKSZ 0x200 /* 65536 */ /* Block size for downloads; if too big, we get
+#define BLKSZ 65536  /* Block size for downloads; if too big, we get
                      * memory allocation error from sg driver */
-#define DOWNLOAD_BLOCK_SIZE 0x200
+#define BLOCK_SIZE 0x200 /* 0x10000 */
 #define BLOCK_RETRY 3 /* Number of retries, since we can occasionally
                        * get SCSI errors when downloading data */
 
@@ -79,18 +79,11 @@ void sleep_sec(double sec) {
 
 ipslr_handle_t pslr;
 
-static int ipslr_set_mode(ipslr_handle_t *p, uint32_t mode);
-static int ipslr_cmd_00_09(ipslr_handle_t *p, uint32_t mode);
-static int ipslr_cmd_10_0a(ipslr_handle_t *p, uint32_t mode);
-static int ipslr_cmd_00_05(ipslr_handle_t *p);
-static int ipslr_status(ipslr_handle_t *p, uint8_t *buf);
 static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status);
 static int ipslr_press_shutter(ipslr_handle_t *p, bool fullpress);
 static int ipslr_select_buffer(ipslr_handle_t *p, int bufno, pslr_buffer_type buftype, int bufres);
 static int ipslr_buffer_segment_info(ipslr_handle_t *p, pslr_buffer_segment_info *pInfo);
 static int ipslr_next_segment(ipslr_handle_t *p);
-static int ipslr_download(ipslr_handle_t *p, uint32_t addr, uint32_t length, uint8_t *buf);
-static int ipslr_identify(ipslr_handle_t *p);
 static int _ipslr_write_args(uint8_t cmd_2, ipslr_handle_t *p, int n, ...);
 #define ipslr_write_args(p,n,...) _ipslr_write_args(0,(p),(n),__VA_ARGS__)
 #define ipslr_write_args_special(p,n,...) _ipslr_write_args(4,(p),(n),__VA_ARGS__)
@@ -179,103 +172,6 @@ typedef enum {
     X10_10,
     X10_DUST
 } x10_subcommands_t;
-
-/* ************** Enabling/disabling debug mode *************/
-/* Done by reverse engineering the USB communication between PK Tether and */
-/* Pentax K-10D camera. The debug on/off should work without breaking the  */
-/* camera, but you are invoking this subroutines without any warranties    */
-/* Written by: Samo Penic, 2014 */
-
-#define DEBUG_OFF 0
-#define DEBUG_ON 1
-
-/* a different write_args function needs to be done with slightly changed */
-/* command sequence. Original function was ipslr_write_args(). */
-/*static int ipslr_write_args_special(ipslr_handle_t *p, int n, ...) {
-    va_list ap;
-    int args[n];
-    int i;
-    for( i = 0; i < 4; ++i ) {
-	args[i] = 0;
-    }
-    va_start(ap, n);
-    for (i = 0; i < n; i++) {
-	args[i] = va_arg(ap, int);
-    }
-    va_end(ap);
-    return _ipslr_write_args(4, p, n, args);
-    }*/
-
-/* Commands in form 23 XX YY. I know it si stupid, but ipslr_cmd functions  */
-/* are sooooo handy.                                                        */
-static int ipslr_cmd_23_XX(ipslr_handle_t *p, char XX, char YY, uint32_t mode) {
-    DPRINT("[C]\t\tipslr_cmd_23_XX(%x, %x, mode=%x)\n", XX, YY, mode);
-    CHECK(ipslr_write_args(p, 1, mode));
-    CHECK(command(p->fd, 0x23, XX, YY));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-/* First of two exceptions. Command 0x23 0x06 0x14 behaves differently than */
-/* generic 23 XX YY commands                                                */
-static int ipslr_cmd_23_06(ipslr_handle_t *p, char debug_on_off) {
-    DPRINT("[C]\t\tipslr_cmd_23_06(debug=%d)\n", debug_on_off);
-    CHECK(ipslr_write_args(p, 1, 3));
-    if(debug_on_off==0){
-        CHECK(ipslr_write_args_special(p, 4,0,0,0,0));
-    } else {
-        CHECK(ipslr_write_args_special(p, 4,1,1,0,0));
-    }
-    CHECK(command(p->fd, 0x23, 0x06, 0x14));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-/* Second exception. Command 0x23 0x04 0x08 behaves differently than generic */
-/* 23 XX YY commands                                                         */
-static int ipslr_cmd_23_04(ipslr_handle_t *p) {
-    DPRINT("[C]\t\tipslr_cmd_23_04()\n");
-    CHECK(ipslr_write_args(p, 1, 3)); // posebni ARGS-i
-    CHECK(ipslr_write_args_special(p, 1, 1)); // posebni ARGS-i
-    CHECK(command(p->fd, 0x23, 0x04, 0x08));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
-
-/* Function called to enable/disable debug mode. If debug_mode argument is 0 */
-/* function disables debug mode, else debug mode is enabled                  */
-int debug_onoff(ipslr_handle_t *p, char debug_mode){
-    DPRINT("[C]\tdebug_onoff(%d)\n", debug_mode);
-    uint8_t buf[16]; /* buffer for storing statuses and read_results */
-
-    ipslr_cmd_00_09(p,1);
-
-    ipslr_cmd_23_XX(p,0x07,0x04,3);
-    read_result(p->fd,buf,0x10);
-
-    ipslr_cmd_23_XX(p,0x05,0x04,3);
-    read_result(p->fd,buf,0x04);
-    ipslr_status(p,buf);
-
-	if(debug_mode==0){
-    		ipslr_cmd_23_06(p,DEBUG_OFF);
-	} else {
-    		ipslr_cmd_23_06(p,DEBUG_ON);
-	}
-    ipslr_status(p,buf);
-
-
-    ipslr_cmd_23_04(p);
-
-    ipslr_cmd_23_XX(p,0x00,0x04, 0);
-
-    ipslr_cmd_00_09(p,2);
-    ipslr_status(p,buf);
-
-    return PSLR_OK;
-}
-
-/* ************* End enabling/disabling debug mode ************ */
 
 user_file_format_t *get_file_format_t( user_file_format uff ) {
     int i;
@@ -408,42 +304,6 @@ pslr_handle_t pslr_init( char *model, char *device ) {
     }
     DPRINT("\tcamera not found\n");
     return NULL;
-}
-
-int pslr_connect(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_connect()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    uint8_t statusbuf[28];
-    CHECK(ipslr_status(p, statusbuf));
-    CHECK(ipslr_set_mode(p, 1));
-    CHECK(ipslr_status(p, statusbuf));
-    CHECK(ipslr_identify(p));
-    if( !p->model ) {
-      DPRINT("\nUnknown Pentax camera.\n");
-      return -1;
-    }
-    CHECK(ipslr_status_full(p, &p->status));
-    DPRINT("\tinit bufmask=0x%x\n", p->status.bufmask);
-    if( !p->model->old_scsi_command ) {
-        CHECK(ipslr_cmd_00_09(p, 2));
-    }
-    CHECK(ipslr_status_full(p, &p->status));
-    CHECK(ipslr_cmd_10_0a(p, 1));
-    if( p->model->old_scsi_command ) {
-        CHECK(ipslr_cmd_00_05(p));
-    }
-    CHECK(ipslr_status_full(p, &p->status));
-    return 0;
-}
-
-int pslr_disconnect(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_disconnect()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    uint8_t statusbuf[28];
-    CHECK(ipslr_cmd_10_0a(p, 0));
-    CHECK(ipslr_set_mode(p, 0));
-    CHECK(ipslr_status(p, statusbuf));
-    return PSLR_OK;
 }
 
 int pslr_shutdown(pslr_handle_t h) {
@@ -605,7 +465,7 @@ int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb, uin
 int ipslr_handle_command_x18( ipslr_handle_t *p, bool cmd9_wrap, int subcommand, int argnum,  ...) {
     DPRINT("[C]\t\tipslr_handle_command_x18(0x%x, %d)\n", subcommand, argnum);
     if( cmd9_wrap ) {
-        CHECK(ipslr_cmd_00_09(p, 1));
+        CHECK(pslr_dsp_task_wu_req(p, 1));
     }
     // max 4 args
     va_list ap;
@@ -623,7 +483,7 @@ int ipslr_handle_command_x18( ipslr_handle_t *p, bool cmd9_wrap, int subcommand,
     CHECK(command(p->fd, 0x18, subcommand, 4 * argnum));
     CHECK(get_status(p->fd));
     if( cmd9_wrap ) {
-        CHECK(ipslr_cmd_00_09(p, 2));
+        CHECK(pslr_dsp_task_wu_req(p, 2));
     }
     return PSLR_OK;
 }
@@ -991,8 +851,10 @@ uint32_t pslr_buffer_read(pslr_handle_t h, uint8_t *buf, uint32_t size) {
 
 //    DPRINT("File offset %d segment: %d offset %d address 0x%x read size %d\n", p->offset,
 //           i, seg_offs, addr, blksz);
-
-    ret = ipslr_download(p, addr, blksz, buf);
+    pslr_data_t data;
+    data.data = buf;
+    data.length = blksz;
+    ret = pslr_download(h, addr, &data);
     if (ret != PSLR_OK)
         return 0;
     p->offset += blksz;
@@ -1092,7 +954,7 @@ const char *pslr_camera_name(pslr_handle_t h) {
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     int ret;
     if (p->id == 0) {
-        ret = ipslr_identify(p);
+        ret = pslr_identify(h);
         if (ret != PSLR_OK)
             return NULL;
     }
@@ -1113,55 +975,118 @@ pslr_buffer_type pslr_get_jpeg_buffer_type(pslr_handle_t h, int jpeg_stars) {
 
 /* ----------------------------------------------------------------------- */
 
-static int ipslr_set_mode(ipslr_handle_t *p, uint32_t mode) {
-    DPRINT("[C]\t\tipslr_set_mode(0x%x)\n", mode);
-    CHECK(ipslr_write_args(p, 1, mode));
-    CHECK(command(p->fd, 0, 0, 4));
-    CHECK(get_status(p->fd));
+int pslr_connect(pslr_handle_t h) {
+    DPRINT("[C]\t\tpslr_connect()\n");
+
+    pslr_get_short_status(h, NULL);
+    pslr_set_mode(h, 1);
+    pslr_get_short_status(h, NULL);
+
+    pslr_identify(h);
+    pslr_get_full_status(h, NULL);
+
+    pslr_dsp_task_wu_req(h, 2);
+    pslr_get_full_status(h, NULL);
+
+    pslr_do_connect(h, true);
+    pslr_connect_legacy(h);
+    pslr_get_full_status(h, NULL);
+
     return PSLR_OK;
 }
 
-static int ipslr_cmd_00_09(ipslr_handle_t *p, uint32_t mode) {
-    DPRINT("[C]\t\tipslr_cmd_00_09(0x%x)\n", mode);
-    CHECK(ipslr_write_args(p, 1, mode));
-    CHECK(command(p->fd, 0, 9, 4));
-    CHECK(get_status(p->fd));
+int pslr_disconnect(pslr_handle_t h) {
+    DPRINT("[C]\tpslr_disconnect()\n");
+    pslr_do_connect(h, false);
+    pslr_set_mode(h, 0);
+    pslr_get_short_status(h, NULL);
     return PSLR_OK;
 }
 
-static int ipslr_cmd_10_0a(ipslr_handle_t *p, uint32_t mode) {
-    DPRINT("[C]\t\tipslr_cmd_10_0a(0x%x)\n", mode);
-    CHECK(ipslr_write_args(p, 1, mode));
-    CHECK(command(p->fd, 0x10, X10_CONNECT, 4));
-    CHECK(get_status(p->fd));
-    return PSLR_OK;
-}
+int pslr_download(pslr_handle_t h, uint32_t address, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_download(address = 0x%X, length = %d)\n", address, data->length);
+    // uint32_t length_start = length;
 
-static int ipslr_cmd_00_05(ipslr_handle_t *p) {
-    DPRINT("[C]\t\tipslr_cmd_00_05()\n");
-    int n;
-    uint8_t buf[0xb8];
-    CHECK(command(p->fd, 0x00, 0x05, 0x00));
-    n = get_result(p->fd);
-    if (n != 0xb8) {
-        DPRINT("\tonly got %d bytes\n", n);
-        return PSLR_READ_ERROR;
+    int retry = 0;
+    int offset = 0;
+    pslr_data_t tempdata;
+    while ((tempdata.length = data->length - offset) > 0) {
+        tempdata.data = data->data + offset;
+        uint32_t block = (tempdata.length > BLOCK_SIZE) ? BLOCK_SIZE : tempdata.length;
+        pslr_request_download(h, address + offset, block);
+        pslr_do_download(h, &tempdata);
+        if (tempdata.length < 0) {
+            if (retry < BLOCK_RETRY) {
+                retry++;
+                continue;
+            }
+            return PSLR_READ_ERROR;
+        }
+        offset += tempdata.length;
+        retry = 0;
+
+        //  callback
+        // if (progress_callback) {
+        //     progress_callback(length_start - length, length_start);
+        // }
     }
-    CHECK(read_result(p->fd, buf, n));
+
     return PSLR_OK;
 }
 
-static int ipslr_status(ipslr_handle_t *p, uint8_t *buf) {
-    int n;
-    DPRINT("[C]\t\tipslr_status()\n");
-    CHECK(command(p->fd, 0, 1, 0));
-    n = get_result(p->fd);
-    if (n == 16 || n == 28) {
-        return read_result(p->fd, buf, n);
-    } else {
-        return PSLR_READ_ERROR;
+int pslr_upload(pslr_handle_t h, uint32_t address, pslr_data_t *data) {
+    DPRINT("[C]\t\tpslr_upload(address = 0x%X, length = %d)\n", address, data->length);
+    // uint32_t length_start = length;
+
+    int retry = 0;
+    int offset = 0;
+    pslr_data_t tempdata;
+    while ((tempdata.length = data->length - offset) > 0) {
+        tempdata.data = data->data + offset;
+        uint32_t block = (tempdata.length > BLOCK_SIZE) ? BLOCK_SIZE : tempdata.length;
+        pslr_request_upload(h, address + offset, block);
+        pslr_do_upload(h, &tempdata);
+        if (tempdata.length < 0) {
+            if (retry < BLOCK_RETRY) {
+                retry++;
+                continue;
+            }
+            return PSLR_READ_ERROR;
+        }
+        offset += tempdata.length;
+        retry = 0;
+
+        //  callback
+        // if (progress_callback) {
+        //     progress_callback(length_start - length, length_start);
+        // }
     }
+
+    return PSLR_OK;
 }
+
+/* Done by reverse engineering the USB communication between PK Tether and */
+/* Pentax K-10D camera. The debug on/off should work without breaking the  */
+/* camera, but you are invoking this subroutines without any warranties    */
+/* Originally written by: Samo Penic, 2014 */
+int pslr_set_debug_mode(pslr_handle_t h, bool debug_mode) {
+    DPRINT("[C]\t\tpslr_debug_mode(%d)\n", debug_mode);
+
+    pslr_dsp_task_wu_req(h, 1);
+    pslr_get_adj_data(h, 3, NULL);
+    pslr_get_adj_mode_flag(h, 3, NULL);
+    pslr_get_short_status(h, NULL);
+    pslr_set_adj_data(h, 3, debug_mode);
+    pslr_get_short_status(h, NULL);
+    pslr_set_adj_mode_flag(h, 3, 1);
+    pslr_write_adj_data(h, 0);
+    pslr_dsp_task_wu_req(h, 2);
+    pslr_get_short_status(h, NULL);
+
+    return PSLR_OK;
+}
+
+/* ----------------------------------------------------------------------- */
 
 static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status) {
     int n;
@@ -1269,69 +1194,6 @@ static int ipslr_buffer_segment_info(ipslr_handle_t *p, pslr_buffer_segment_info
 	  sleep_sec( 0.1 );
 	}
     }
-    return PSLR_OK;
-}
-
-static int ipslr_download(ipslr_handle_t *p, uint32_t addr, uint32_t length, uint8_t *buf) {
-    DPRINT("[C]\t\tipslr_download(address = 0x%X, length = %d)\n", addr, length);
-    uint8_t downloadCmd[8] = {0xf0, 0x24, 0x06, 0x02, 0x00, 0x00, 0x00, 0x00};
-    uint32_t block;
-    int n;
-    int retry;
-    uint32_t length_start = length;
-
-    retry = 0;
-    while (length > 0) {
-        if (length > BLKSZ) {
-            block = BLKSZ;
-        } else {
-            block = length;
-	}
-
-        //DPRINT("Get 0x%x bytes from 0x%x\n", block, addr);
-        CHECK(ipslr_write_args(p, 2, addr, block));
-        CHECK(command(p->fd, 0x06, 0x00, 0x08));
-        get_status(p->fd);
-
-        n = scsi_read(p->fd, downloadCmd, sizeof (downloadCmd), buf, block);
-        get_status(p->fd);
-
-        if (n < 0) {
-            if (retry < BLOCK_RETRY) {
-                retry++;
-                continue;
-            }
-            return PSLR_READ_ERROR;
-        }
-        buf += n;
-        length -= n;
-        addr += n;
-        retry = 0;
-        if (progress_callback) {
-            progress_callback(length_start - length, length_start);
-        }
-    }
-    return PSLR_OK;
-}
-
-static int ipslr_identify(ipslr_handle_t *p) {
-    DPRINT("[C]\t\tipslr_identify()\n");
-    uint8_t idbuf[8];
-    int n;
-
-    CHECK(command(p->fd, 0, 4, 0));
-    n = get_result(p->fd);
-    if (n != 8)
-        return PSLR_READ_ERROR;
-    CHECK(read_result(p->fd, idbuf, 8));
-    //  Check the camera endian, which affect ID
-    if (idbuf[0] == 0) {
-        p->id = get_uint32_be(&idbuf[0]);
-    } else {
-        p->id = get_uint32_le(&idbuf[0]);
-    }
-    DPRINT("\tid of the camera: %x\n", p->id);
-    p->model = find_model_by_id( p->id );
     return PSLR_OK;
 }
 

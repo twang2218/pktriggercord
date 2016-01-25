@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
 #endif
 
     int modify_debug_mode=0;
-    char debug_mode=0;
+    bool debug_mode = false;
 
     int debug_download_mode = -1;
     uint32_t debug_address = 0;
@@ -514,7 +514,7 @@ int main(int argc, char **argv) {
 
 	    case 24:
 		modify_debug_mode=1;
-		debug_mode=atoi(optarg);
+		debug_mode = (atoi(optarg) == 1);
 
       case 25:
         debug_download_mode = atoi(optarg);
@@ -560,7 +560,7 @@ int main(int argc, char **argv) {
 
 /* if debug mode switch is on, there is a possibility someone just want to alter debug mode */
     if( modify_debug_mode == 1) {
-	debug_onoff(camhandle,debug_mode);
+	pslr_set_debug_mode(camhandle,debug_mode);
 	camera_close(camhandle);
 	exit(0);
     }
