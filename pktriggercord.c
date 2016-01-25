@@ -1741,7 +1741,7 @@ G_MODULE_EXPORT void shutter_scale_value_changed_cb(GtkAction *action, gpointer 
     assert(idx < steps);
     value = tbl[idx];
     DPRINT("shutter->%d/%d\n", value.nom, value.denom);
-    ret = pslr_set_shutter(camhandle, value);
+    ret = pslr_set_shutter_speed(camhandle, value);
     if (ret != PSLR_OK) {
         DPRINT("Set shutter failed: %d\n", ret);
     }
@@ -1801,7 +1801,7 @@ G_MODULE_EXPORT void ec_scale_value_changed_cb(GtkAction *action, gpointer user_
     if (status_new == NULL)
         return;
     if (status_new->ec.nom != new_ec.nom || status_new->ec.denom != new_ec.denom) {
-        ret = pslr_set_ec(camhandle, new_ec);
+        ret = pslr_set_exposure_compensation(camhandle, new_ec);
         if (ret != PSLR_OK) {
             DPRINT("Set EC failed: %d\n", ret);
         }

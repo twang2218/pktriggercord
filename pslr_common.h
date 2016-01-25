@@ -28,6 +28,11 @@ typedef struct {
     int32_t length;
 } pslr_data_t;
 
+typedef struct {
+    int32_t nom;
+    int32_t denom;
+} pslr_rational_t;
+
 typedef void *pslr_handle_t;
 
 #endif // PSLR_COMMON_H

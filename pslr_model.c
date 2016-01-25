@@ -181,6 +181,14 @@ int get_hw_jpeg_quality( ipslr_model_info_t *model, int user_jpeg_stars) {
     }
 }
 
+int get_hw_jpeg_resolution( ipslr_model_info_t *model, int megapixel) {
+    int resindex = 0;
+    while( resindex < MAX_RESOLUTION_SIZE && model->jpeg_resolutions[resindex] > megapixel ) {
+	++resindex;
+    }
+    return resindex < MAX_RESOLUTION_SIZE ? resindex : MAX_RESOLUTION_SIZE-1;
+}
+
 
 void ipslr_status_parse_k10d(ipslr_handle_t  *p, pslr_status *status) {
     uint8_t *buf = p->status_buffer;

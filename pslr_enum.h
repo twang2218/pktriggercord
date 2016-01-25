@@ -13,7 +13,7 @@
     Copyright (C) 2010 Tomasz Kos
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by 
+    it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
@@ -29,11 +29,7 @@
 #ifndef PSLR_ENUM_H
 #define PSLR_ENUM_H
 
-typedef enum {
-    PSLR_COLOR_SPACE_SRGB,
-    PSLR_COLOR_SPACE_ADOBERGB,
-    PSLR_COLOR_SPACE_MAX
-} pslr_color_space_t;
+typedef enum { PSLR_COLOR_SPACE_SRGB, PSLR_COLOR_SPACE_ADOBERGB, PSLR_COLOR_SPACE_MAX } pslr_color_space_t;
 
 typedef enum {
     PSLR_AF_MODE_MF,
@@ -83,7 +79,7 @@ typedef enum {
 } pslr_af_point_sel_t;
 
 typedef enum {
-    PSLR_JPEG_IMAGE_TONE_NONE = -1,  
+    PSLR_JPEG_IMAGE_TONE_NONE = -1,
     PSLR_JPEG_IMAGE_TONE_NATURAL,
     PSLR_JPEG_IMAGE_TONE_BRIGHT,
     PSLR_JPEG_IMAGE_TONE_PORTRAIT,
@@ -114,17 +110,44 @@ typedef enum {
     PSLR_WHITE_BALANCE_MODE_MAX = 0x11
 } pslr_white_balance_mode_t;
 
+typedef enum { PSLR_CUSTOM_EV_STEPS_1_2, PSLR_CUSTOM_EV_STEPS_1_3, PSLR_CUSTOM_EV_STEPS_MAX } pslr_custom_ev_steps_t;
+
+typedef enum { PSLR_RAW_FORMAT_PEF, PSLR_RAW_FORMAT_DNG, PSLR_RAW_FORMAT_MAX } pslr_raw_format_t;
+
+// OFF-AUTO: Off-Auto-Aperture
 typedef enum {
-    PSLR_CUSTOM_EV_STEPS_1_2,
-    PSLR_CUSTOM_EV_STEPS_1_3,
-    PSLR_CUSTOM_EV_STEPS_MAX
-} pslr_custom_ev_steps_t;
+    PSLR_EXPOSURE_MODE_P = 0,
+    PSLR_EXPOSURE_MODE_GREEN = 1,
+    //    PSLR_EXPOSURE_MODE_HYP = 2,
+    //    PSLR_EXPOSURE_MODE_AUTO_PICT = 1,
+    //    PSLR_EXPOSURE_MODE_GREEN = 3, maybe 1 is AUTO_PICT
+    PSLR_EXPOSURE_MODE_TV = 4,
+    PSLR_EXPOSURE_MODE_AV = 5,
+    //    PSLR_EXPOSURE_MODE_TV_SHIFT = 6, //?
+    //    PSLR_EXPOSURE_MODE_AV_SHIFT = 7, //?
+    PSLR_EXPOSURE_MODE_M = 8,
+    PSLR_EXPOSURE_MODE_B = 9,
+    PSLR_EXPOSURE_MODE_AV_OFFAUTO = 10,
+    PSLR_EXPOSURE_MODE_M_OFFAUTO = 11,
+    PSLR_EXPOSURE_MODE_B_OFFAUTO = 12,
+    PSLR_EXPOSURE_MODE_TAV = 13, // ?
+    PSLR_EXPOSURE_MODE_SV = 15,
+    PSLR_EXPOSURE_MODE_X = 16, // ?
+    PSLR_EXPOSURE_MODE_MAX = 17
+} pslr_exposure_mode_t;
 
 typedef enum {
-    PSLR_RAW_FORMAT_PEF,
-    PSLR_RAW_FORMAT_DNG,
-    PSLR_RAW_FORMAT_MAX
-} pslr_raw_format_t;
+    PSLR_GUI_EXPOSURE_MODE_GREEN,
+    PSLR_GUI_EXPOSURE_MODE_P,
+    PSLR_GUI_EXPOSURE_MODE_SV,
+    PSLR_GUI_EXPOSURE_MODE_TV,
+    PSLR_GUI_EXPOSURE_MODE_AV,
+    PSLR_GUI_EXPOSURE_MODE_TAV,
+    PSLR_GUI_EXPOSURE_MODE_M,
+    PSLR_GUI_EXPOSURE_MODE_B,
+    PSLR_GUI_EXPOSURE_MODE_X,
+    PSLR_GUI_EXPOSURE_MODE_MAX
+} pslr_gui_exposure_mode_t;
 
 typedef enum {
     PSLR_EXPOSURE_SUBMODE_NONE,
@@ -153,38 +176,61 @@ typedef enum {
     PSLR_EXPOSURE_SUBMODE_MAX
 } pslr_exposure_submode_t;
 
-int str_comparison_i (const char *s1, const char *s2, int n);
-int find_in_array( const char** array, int length, char* str );
+typedef enum {
+    PSLR_AF_POINT_TOP_LEFT = 0x1,
+    PSLR_AF_POINT_TOP_MID = 0x2,
+    PSLR_AF_POINT_TOP_RIGHT = 0x4,
+    PSLR_AF_POINT_FAR_LEFT = 0x8,
+    PSLR_AF_POINT_MID_LEFT = 0x10,
+    PSLR_AF_POINT_MID_MID = 0x20,
+    PSLR_AF_POINT_MID_RIGHT = 0x40,
+    PSLR_AF_POINT_FAR_RIGHT = 0x80,
+    PSLR_AF_POINT_BOT_LEFT = 0x100,
+    PSLR_AF_POINT_BOT_MID = 0x200,
+    PSLR_AF_POINT_BOT_RIGHT = 0x400
+} pslr_af_point_t;
 
-pslr_color_space_t get_pslr_color_space( char *str );
-const char *get_pslr_color_space_str( pslr_color_space_t value );
+typedef enum {
+    PSLR_IMAGE_FORMAT_JPEG,
+    PSLR_IMAGE_FORMAT_RAW,
+    PSLR_IMAGE_FORMAT_RAW_PLUS,
+    PSLR_IMAGE_FORMAT_MAX
+} pslr_image_format_t;
 
-pslr_af_mode_t get_pslr_af_mode( char *str );
-const char *get_pslr_af_mode_str( pslr_af_mode_t value );
+int str_comparison_i(const char *s1, const char *s2, int n);
+int find_in_array(const char **array, int length, char *str);
 
-pslr_ae_metering_t get_pslr_ae_metering( char *str );
-const char *get_pslr_ae_metering_str( pslr_ae_metering_t value );
+pslr_color_space_t get_pslr_color_space(char *str);
+const char *get_pslr_color_space_str(pslr_color_space_t value);
 
-pslr_flash_mode_t get_pslr_flash_mode( char *str );
-const char *get_pslr_flash_mode_str( pslr_flash_mode_t value );
+pslr_af_mode_t get_pslr_af_mode(char *str);
+const char *get_pslr_af_mode_str(pslr_af_mode_t value);
 
-pslr_drive_mode_t get_pslr_drive_mode( char *str );
-const char *get_pslr_drive_mode_str( pslr_drive_mode_t value );
+pslr_ae_metering_t get_pslr_ae_metering(char *str);
+const char *get_pslr_ae_metering_str(pslr_ae_metering_t value);
 
-pslr_af_point_sel_t get_pslr_af_point_sel( char *str );
-const char *get_pslr_af_point_sel_str( pslr_af_point_sel_t value );
+pslr_flash_mode_t get_pslr_flash_mode(char *str);
+const char *get_pslr_flash_mode_str(pslr_flash_mode_t value);
 
-pslr_jpeg_image_tone_t get_pslr_jpeg_image_tone( char *str );
-const char *get_pslr_jpeg_image_tone_str( pslr_jpeg_image_tone_t value );
+pslr_drive_mode_t get_pslr_drive_mode(char *str);
+const char *get_pslr_drive_mode_str(pslr_drive_mode_t value);
 
-pslr_white_balance_mode_t get_pslr_white_balance_mode( char *str );
-const char *get_pslr_white_balance_mode_str( pslr_white_balance_mode_t value );
+pslr_af_point_sel_t get_pslr_af_point_sel(char *str);
+const char *get_pslr_af_point_sel_str(pslr_af_point_sel_t value);
 
-//pslr_custom_ev_steps_t get_pslr_custom_ev_steps( char *str );
-const char *get_pslr_custom_ev_steps_str( pslr_custom_ev_steps_t value );
+pslr_jpeg_image_tone_t get_pslr_jpeg_image_tone(char *str);
+const char *get_pslr_jpeg_image_tone_str(pslr_jpeg_image_tone_t value);
 
-const char *get_pslr_raw_format_str( pslr_raw_format_t value );
+pslr_white_balance_mode_t get_pslr_white_balance_mode(char *str);
+const char *get_pslr_white_balance_mode_str(pslr_white_balance_mode_t value);
 
-const char *get_pslr_exposure_submode_str( pslr_exposure_submode_t value );
+// pslr_custom_ev_steps_t get_pslr_custom_ev_steps( char *str );
+const char *get_pslr_custom_ev_steps_str(pslr_custom_ev_steps_t value);
+
+const char *get_pslr_raw_format_str(pslr_raw_format_t value);
+
+const char *get_pslr_exposure_submode_str(pslr_exposure_submode_t value);
+
+pslr_gui_exposure_mode_t exposure_mode_conversion(pslr_exposure_mode_t exp);
 
 #endif

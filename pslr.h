@@ -43,18 +43,6 @@
 
 #define PSLR_LIGHT_METER_AE_LOCK 0x8
 
-#define PSLR_AF_POINT_TOP_LEFT   0x1
-#define PSLR_AF_POINT_TOP_MID    0x2
-#define PSLR_AF_POINT_TOP_RIGHT  0x4
-#define PSLR_AF_POINT_FAR_LEFT   0x8
-#define PSLR_AF_POINT_MID_LEFT   0x10
-#define PSLR_AF_POINT_MID_MID    0x20
-#define PSLR_AF_POINT_MID_RIGHT  0x40
-#define PSLR_AF_POINT_FAR_RIGHT  0x80
-#define PSLR_AF_POINT_BOT_LEFT   0x100
-#define PSLR_AF_POINT_BOT_MID    0x200
-#define PSLR_AF_POINT_BOT_RIGHT  0x400
-
 typedef enum {
     PSLR_BUF_PEF,
     PSLR_BUF_DNG,
@@ -65,13 +53,6 @@ typedef enum {
     PSLR_BUF_PREVIEW = 8,
     PSLR_BUF_THUMBNAIL = 9 // 7 works also
 } pslr_buffer_type;
-
-typedef enum {
-    PSLR_IMAGE_FORMAT_JPEG,
-    PSLR_IMAGE_FORMAT_RAW,
-    PSLR_IMAGE_FORMAT_RAW_PLUS,
-    PSLR_IMAGE_FORMAT_MAX
-} pslr_image_format_t;
 
 typedef enum {
     USER_FILE_FORMAT_PEF,
@@ -95,41 +76,6 @@ typedef enum {
     PSLR_CUSTOM_SENSITIVITY_STEPS_AS_EV,
     PSLR_CUSTOM_SENSITIVITY_STEPS_MAX
 } pslr_custom_sensitivity_steps_t;
-
-// OFF-AUTO: Off-Auto-Aperture
-typedef enum {
-    PSLR_EXPOSURE_MODE_P = 0 ,
-    PSLR_EXPOSURE_MODE_GREEN = 1,
-//    PSLR_EXPOSURE_MODE_HYP = 2,
-//    PSLR_EXPOSURE_MODE_AUTO_PICT = 1,
-//    PSLR_EXPOSURE_MODE_GREEN = 3, maybe 1 is AUTO_PICT
-    PSLR_EXPOSURE_MODE_TV = 4,
-    PSLR_EXPOSURE_MODE_AV = 5,
-//    PSLR_EXPOSURE_MODE_TV_SHIFT = 6, //?
-//    PSLR_EXPOSURE_MODE_AV_SHIFT = 7, //?
-    PSLR_EXPOSURE_MODE_M = 8,
-    PSLR_EXPOSURE_MODE_B = 9,
-    PSLR_EXPOSURE_MODE_AV_OFFAUTO = 10,
-    PSLR_EXPOSURE_MODE_M_OFFAUTO = 11,
-    PSLR_EXPOSURE_MODE_B_OFFAUTO = 12,
-    PSLR_EXPOSURE_MODE_TAV = 13, // ?
-    PSLR_EXPOSURE_MODE_SV = 15,
-    PSLR_EXPOSURE_MODE_X = 16, // ?
-    PSLR_EXPOSURE_MODE_MAX = 17
-} pslr_exposure_mode_t;
-
-typedef enum {
-    PSLR_GUI_EXPOSURE_MODE_GREEN,
-    PSLR_GUI_EXPOSURE_MODE_P,
-    PSLR_GUI_EXPOSURE_MODE_SV,
-    PSLR_GUI_EXPOSURE_MODE_TV,
-    PSLR_GUI_EXPOSURE_MODE_AV,
-    PSLR_GUI_EXPOSURE_MODE_TAV,
-    PSLR_GUI_EXPOSURE_MODE_M,
-    PSLR_GUI_EXPOSURE_MODE_B,
-    PSLR_GUI_EXPOSURE_MODE_X,
-    PSLR_GUI_EXPOSURE_MODE_MAX
-} pslr_gui_exposure_mode_t;
 
 typedef void *pslr_handle_t;
 
@@ -159,32 +105,6 @@ int pslr_get_buffer(pslr_handle_t h, int bufno, pslr_buffer_type type, int resol
 int pslr_set_progress_callback(pslr_handle_t h, pslr_progress_callback_t cb,
                                uintptr_t user_data);
 
-int pslr_set_shutter(pslr_handle_t h, pslr_rational_t value);
-int pslr_set_aperture(pslr_handle_t h, pslr_rational_t value);
-int pslr_set_iso(pslr_handle_t h, uint32_t value, uint32_t auto_min_value, uint32_t auto_max_value);
-int pslr_set_ec(pslr_handle_t h, pslr_rational_t value);
-
-int pslr_set_white_balance(pslr_handle_t h, pslr_white_balance_mode_t wb_mode);
-int pslr_set_white_balance_adjustment(pslr_handle_t h, pslr_white_balance_mode_t wb_mode, uint32_t wbadj_mg, uint32_t wbadj_ba);
-int pslr_set_flash_mode(pslr_handle_t h, pslr_flash_mode_t value);
-int pslr_set_flash_exposure_compensation(pslr_handle_t h, pslr_rational_t value);
-int pslr_set_drive_mode(pslr_handle_t h, pslr_drive_mode_t drive_mode);
-int pslr_set_af_mode(pslr_handle_t h, pslr_af_mode_t af_mode);
-int pslr_set_af_point_sel(pslr_handle_t h, pslr_af_point_sel_t af_point_sel);
-int pslr_set_ae_metering_mode(pslr_handle_t h, pslr_ae_metering_t ae_metering_mode);
-int pslr_set_color_space(pslr_handle_t h, pslr_color_space_t color_space);
-
-int pslr_set_jpeg_stars(pslr_handle_t h, int jpeg_stars);
-int pslr_set_jpeg_resolution(pslr_handle_t h, int megapixel);
-int pslr_set_jpeg_image_tone(pslr_handle_t h, pslr_jpeg_image_tone_t image_mode);
-
-int pslr_set_jpeg_sharpness(pslr_handle_t h, int32_t sharpness);
-int pslr_set_jpeg_contrast(pslr_handle_t h, int32_t contrast);
-int pslr_set_jpeg_saturation(pslr_handle_t h, int32_t saturation);
-int pslr_set_jpeg_hue(pslr_handle_t h, int32_t hue);
-
-int pslr_set_image_format(pslr_handle_t h, pslr_image_format_t format);
-int pslr_set_raw_format(pslr_handle_t h, pslr_raw_format_t format);
 int pslr_set_user_file_format(pslr_handle_t h, user_file_format uff);
 user_file_format get_user_file_format( pslr_status *st );
 
@@ -197,8 +117,6 @@ uint32_t pslr_buffer_read(pslr_handle_t h, uint8_t *buf, uint32_t size);
 void pslr_buffer_close(pslr_handle_t h);
 uint32_t pslr_buffer_get_size(pslr_handle_t h);
 
-int pslr_set_exposure_mode(pslr_handle_t h, pslr_exposure_mode_t mode);
-int pslr_select_af_point(pslr_handle_t h, uint32_t point);
 
 const char *pslr_camera_name(pslr_handle_t h);
 int pslr_get_model_max_jpeg_stars(pslr_handle_t h);
@@ -218,10 +136,9 @@ pslr_jpeg_image_tone_t pslr_get_model_max_supported_image_tone(pslr_handle_t h);
 pslr_buffer_type pslr_get_jpeg_buffer_type(pslr_handle_t h, int quality);
 int pslr_get_jpeg_resolution(pslr_handle_t h, int hwres);
 
-pslr_gui_exposure_mode_t exposure_mode_conversion( pslr_exposure_mode_t exp );
 char *format_rational( pslr_rational_t rational, char * fmt );
 
-int pslr_test( pslr_handle_t h, bool cmd9_wrap, int subcommand, int argnum,  int arg1, int arg2, int arg3, int arg4);
+// int pslr_test( pslr_handle_t h, bool cmd9_wrap, int subcommand, int argnum,  int arg1, int arg2, int arg3, int arg4);
 
 void write_debug( const char* message, ... );
 

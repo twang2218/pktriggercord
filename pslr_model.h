@@ -36,6 +36,7 @@
 #define PSLR_MODEL_H
 
 #include "pslr_enum.h"
+#include "pslr_common.h"
 #include "pslr_scsi.h"
 
 #define MAX_RESOLUTION_SIZE 4
@@ -43,11 +44,6 @@
 #define MAX_SEGMENTS 4
 
 typedef struct ipslr_handle ipslr_handle_t;
-
-typedef struct {
-    int32_t nom;
-    int32_t denom;
-} pslr_rational_t;
 
 typedef struct {
     uint16_t bufmask;
@@ -147,6 +143,7 @@ struct ipslr_handle {
 ipslr_model_info_t *find_model_by_id( uint32_t id );
 
 int get_hw_jpeg_quality( ipslr_model_info_t *model, int user_jpeg_stars);
+int get_hw_jpeg_resolution( ipslr_model_info_t *model, int megapixel);
 
 uint32_t get_uint32_be(uint8_t *buf);
 uint32_t get_uint32_le(uint8_t *buf);

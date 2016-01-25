@@ -660,7 +660,7 @@ int main(int argc, char **argv) {
     if (EM != PSLR_EXPOSURE_MODE_MAX) pslr_set_exposure_mode(camhandle, EM);
 
     if( ec.denom ) {
-	pslr_set_ec( camhandle, ec );
+	pslr_set_exposure_compensation( camhandle, ec );
     }
 
     if( fec.denom ) {
@@ -691,7 +691,7 @@ int main(int argc, char **argv) {
 	    warning_message("%s: Invalid shutter speed value.\n", argv[0]);
 	}
 
-        pslr_set_shutter(camhandle, shutter_speed);
+        pslr_set_shutter_speed(camhandle, shutter_speed);
     } else if( status.exposure_mode == PSLR_GUI_EXPOSURE_MODE_B ) {
 	warning_message("%s: Shutter speed not specified in Bulb mode. Using 30s.\n", argv[0]);
 	shutter_speed.nom = 30;
