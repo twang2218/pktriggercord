@@ -38,6 +38,7 @@ int pslr_request_upload(pslr_handle_t h, uint32_t address, int32_t length);
 int pslr_do_upload(pslr_handle_t h, pslr_data_t *data);
 int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data);
 //  Group 0x10
+int pslr_shutter(pslr_handle_t h, bool fullpress);
 int pslr_do_connect(pslr_handle_t h, bool connect);
 //  Group 0x23
 int pslr_write_adj_data(pslr_handle_t h, uint32_t value);

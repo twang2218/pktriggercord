@@ -1404,7 +1404,7 @@ G_MODULE_EXPORT void shutter_press(GtkAction *action)
       }
       is_bulbing_on = TRUE;
       pslr_bulb(camhandle, true);
-      pslr_shutter(camhandle);
+      pslr_shutter(camhandle, true);
       while(shutter_speed > 0 && is_bulbing_on == TRUE) {
 	static gchar bulb_message[100];
 	sprintf (bulb_message, "BULB -> wait : %d seconds", shutter_speed);
@@ -1421,7 +1421,7 @@ G_MODULE_EXPORT void shutter_press(GtkAction *action)
 	gtk_button_set_label((GtkButton *)widget, "Take picture");
       }
     } else {
-      r = pslr_shutter(camhandle);
+      r = pslr_shutter(camhandle, true);
       if (r != PSLR_OK) {
         DPRINT("shutter error\n");
         return;
@@ -1437,7 +1437,7 @@ G_MODULE_EXPORT void focus_button_clicked_cb(GtkAction *action)
 {
     DPRINT("Focus");
     int ret;
-    ret = pslr_focus(camhandle);
+    ret = pslr_shutter(camhandle, false);
     if (ret != PSLR_OK) {
         DPRINT("Focus failed: %d\n", ret);
     }
@@ -2028,7 +2028,7 @@ static void save_buffer(int bufno, const char *filename)
         } else if (r < bytes) {
             DPRINT("write(buf): only write %d bytes, should be %d bytes.\n", r, bytes);
         }
-        
+
         current += bytes;
         gtk_progress_bar_update(GTK_PROGRESS_BAR(pw), (gdouble) current / (gdouble) length);
         /* process pending events */

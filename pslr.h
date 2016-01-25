@@ -39,7 +39,7 @@
 #include "pslr_enum.h"
 #include "pslr_scsi.h"
 #include "pslr_model.h"
-#include "pslr_scsi_command.h"
+#include "pslr_command.h"
 
 #define PSLR_LIGHT_METER_AE_LOCK 0x8
 
@@ -147,9 +147,6 @@ void sleep_sec(double sec);
 pslr_handle_t pslr_init(char *model, char *device);
 int pslr_shutdown(pslr_handle_t h);
 const char *pslr_model(uint32_t id);
-
-int pslr_shutter(pslr_handle_t h);
-int pslr_focus(pslr_handle_t h);
 
 int pslr_get_status(pslr_handle_t h, pslr_status *sbuf);
 int pslr_get_status_buffer(pslr_handle_t h, uint8_t *st_buf);

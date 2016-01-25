@@ -80,7 +80,6 @@ void sleep_sec(double sec) {
 ipslr_handle_t pslr;
 
 static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status);
-static int ipslr_press_shutter(ipslr_handle_t *p, bool fullpress);
 static int ipslr_select_buffer(ipslr_handle_t *p, int bufno, pslr_buffer_type buftype, int bufres);
 static int ipslr_buffer_segment_info(ipslr_handle_t *p, pslr_buffer_segment_info *pInfo);
 static int ipslr_next_segment(ipslr_handle_t *p);
@@ -311,18 +310,6 @@ int pslr_shutdown(pslr_handle_t h) {
     ipslr_handle_t *p = (ipslr_handle_t *) h;
     close_drive(&p->fd);
     return PSLR_OK;
-}
-
-int pslr_shutter(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_shutter()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    return ipslr_press_shutter(p, true);
-}
-
-int pslr_focus(pslr_handle_t h) {
-    DPRINT("[C]\tpslr_focus()\n");
-    ipslr_handle_t *p = (ipslr_handle_t *) h;
-    return ipslr_press_shutter(p, false);
 }
 
 int pslr_get_status(pslr_handle_t h, pslr_status *ps) {
@@ -1116,20 +1103,6 @@ static int ipslr_status_full(ipslr_handle_t *p, pslr_status *status) {
 	}
         return PSLR_OK;
     }
-}
-
-// fullpress: take picture
-// halfpress: autofocus
-static int ipslr_press_shutter(ipslr_handle_t *p, bool fullpress) {
-    DPRINT("[C]\t\tipslr_press_shutter(fullpress = %s)\n", (fullpress ? "true" : "false"));
-    int r;
-    CHECK(ipslr_status_full(p, &p->status));
-    DPRINT("\t\tbefore: mask=0x%x\n", p->status.bufmask);
-    CHECK(ipslr_write_args(p, 1, fullpress ? 2 : 1));
-    CHECK(command(p->fd, 0x10, X10_SHUTTER, 0x04));
-    r = get_status(p->fd);
-    DPRINT("\t\tshutter result code: 0x%x\n", r);
-    return PSLR_OK;
 }
 
 static int ipslr_select_buffer(ipslr_handle_t *p, int bufno, pslr_buffer_type buftype, int bufres) {

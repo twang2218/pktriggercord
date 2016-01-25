@@ -716,7 +716,7 @@ int main(int argc, char **argv) {
     int frameNo;
 
     if (auto_focus) {
-        pslr_focus(camhandle);
+        pslr_shutter(camhandle, false);
     }
 
     if (green) {
@@ -806,7 +806,7 @@ int main(int argc, char **argv) {
 	    if( status.exposure_mode ==  PSLR_GUI_EXPOSURE_MODE_B ) {
 		DPRINT("bulb\n");
 		pslr_bulb( camhandle, true );
-		pslr_shutter(camhandle);
+		pslr_shutter(camhandle, true);
 		gettimeofday(&current_time, NULL);
 		waitsec = 1.0 * shutter_speed.nom / shutter_speed.denom - timeval_diff(&current_time, &prev_time) / 1000000.0;
 		if( waitsec < 0 ) {
@@ -816,7 +816,7 @@ int main(int argc, char **argv) {
 		pslr_bulb( camhandle, false );
 	    } else {
 		DPRINT("not bulb\n");
-		pslr_shutter(camhandle);
+		pslr_shutter(camhandle, true);
 	    }
 	    pslr_get_status(camhandle, &status);
 	}

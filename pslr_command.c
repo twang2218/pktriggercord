@@ -75,6 +75,8 @@ static int parse_full_status(pslr_handle_t h, pslr_data_t *data) {
     return PSLR_OK;
 }
 
+static const char *bool_string(bool value) { return value ? "true" : "false"; }
+
 /**************** Simple Commands ****************/
 
 /**************** Command Group 0x00 ****************/
@@ -194,8 +196,19 @@ int pslr_get_transfer_status(pslr_handle_t h, pslr_data_t *data) {
 
 /**************** Command Group 0x10 ****************/
 
+// fullpress: take picture
+// halfpress: autofocus
+int pslr_shutter(pslr_handle_t h, bool fullpress) {
+    DPRINT("[C]\t\tpslr_shutter(%s)\n", bool_string(fullpress));
+    pslr_get_full_status(h, NULL);
+    pslr_command_t command;
+    command_init(&command, h, 0x10, 0x05);
+    command_add_arg(&command, (fullpress ? 2 : 1));
+    return generic_command(&command);
+}
+
 int pslr_do_connect(pslr_handle_t h, bool connect) {
-    DPRINT("[C]\t\tpslr_set_connect_mode(%d)\n", connect);
+    DPRINT("[C]\t\tpslr_set_connect_mode(%s)\n", bool_string(connect));
     pslr_command_t command;
     command_init(&command, h, 0x10, 0x0a);
     command_add_arg(&command, (connect ? 1 : 0));
@@ -233,7 +246,7 @@ int pslr_get_adj_mode_flag(pslr_handle_t h, uint32_t mode, pslr_data_t *data) {
 }
 
 int pslr_set_adj_data(pslr_handle_t h, uint32_t mode, bool debug_mode) {
-    DPRINT("[C]\t\tpslr_set_adj_data(%d, %d)\n", mode, debug_mode);
+    DPRINT("[C]\t\tpslr_set_adj_data(%d, %s)\n", mode, bool_string(debug_mode));
     pslr_command_t command;
     command_init(&command, h, 0x23, 0x06);
     command_add_arg(&command, mode);

@@ -234,11 +234,11 @@ int servermode_socket(int servermode_timeout) {
 		sprintf(buf, "%d %d\n", 0, status.bufmask);
 	        write_socket_answer(buf);
 	    } else if( !strcmp(client_message, "focus") ) {
-		pslr_focus(camhandle);
+		pslr_shutter(camhandle, false);
 		sprintf(buf, "%d\n", 0);
 	        write_socket_answer(buf);
 	    } else if( !strcmp(client_message, "shutter") ) {
-		pslr_shutter(camhandle);
+		pslr_shutter(camhandle, true);
 		sprintf(buf, "%d\n", 0);
 	        write_socket_answer(buf);
 	    } else if( !strcmp(client_message, "delete_buffer") ) {
