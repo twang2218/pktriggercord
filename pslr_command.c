@@ -26,15 +26,9 @@
 #include "pslr_command.h"
 #include "pslr.h"
 
-/* Block size for downloads; if too big, we get
- * memory allocation error from sg driver */
-#define BLOCK_SIZE 0x200 /* 0x10000 */
-
-/* Number of retries, since we can occasionally
- * get SCSI errors when downloading data */
-#define BLOCK_RETRY 3
-
 /**************** Parse Functions ****************/
+
+static const char *bool_string(bool value) { return value ? "true" : "false"; }
 
 static uint32_t get_uint32(pslr_handle_t h, uint8_t *data) {
     ipslr_handle_t *p = (ipslr_handle_t *)h;
@@ -47,12 +41,14 @@ static uint32_t get_uint32(pslr_handle_t h, uint8_t *data) {
     }
 }
 
-static int parse_camera_model(pslr_handle_t h, uint8_t *data) {
+static int parse_camera_model(pslr_handle_t h, pslr_data_t *data) {
     ipslr_handle_t *p = (ipslr_handle_t *)h;
-    if (data[0] == 0) {
-        p->id = get_uint32_be(data);
+    if (data == NULL || data->data == NULL || data->length < 8) {
+        return PSLR_READ_ERROR;
+    } else if (data->data[0] == 0) {
+        p->id = get_uint32_be(data->data);
     } else {
-        p->id = get_uint32_le(data);
+        p->id = get_uint32_le(data->data);
     }
     DPRINT("\t\t\tid of the camera: %x\n", p->id);
     p->model = find_model_by_id(p->id);
@@ -101,8 +97,6 @@ static int parse_buffer_segment_info(pslr_handle_t h, pslr_data_t *data, pslr_bu
     }
 }
 
-static const char *bool_string(bool value) { return value ? "true" : "false"; }
-
 /**************** Simple Commands ****************/
 
 /**************** Command Group 0x00 ****************/
@@ -128,8 +122,11 @@ int pslr_identify(pslr_handle_t h) {
     DPRINT("[C]\t\tpslr_identify()\n");
     pslr_command_t command;
     command_init(&command, h, 0x00, 0x04);
+    command_load_from_data(&command, NULL, DATA_USAGE_READ_RESULT);
     generic_command(&command);
-    return parse_camera_model(h, command.data);
+    int ret = parse_camera_model(h, &command.data);
+    command_save_to_data(&command, NULL);
+    return ret;
 }
 
 int pslr_connect_legacy(pslr_handle_t h) {
@@ -149,13 +146,10 @@ int pslr_get_full_status(pslr_handle_t h) {
     DPRINT("[C]\t\tpslr_get_full_status()\n");
     pslr_command_t command;
     command_init(&command, h, 0x00, 0x08);
-    pslr_data_t data;
-    memset(&data, 0, sizeof(pslr_data_t));
-    command_load_from_data(&command, &data, DATA_USAGE_READ_RESULT);
+    command_load_from_data(&command, NULL, DATA_USAGE_READ_RESULT);
     int ret = generic_command(&command);
-    command_save_to_data(&command, &data);
-    parse_full_status(h, &data);
-    command_free(&command);
+    parse_full_status(h, &command.data);
+    command_save_to_data(&command, NULL);
     return ret;
 }
 
@@ -225,16 +219,14 @@ int pslr_get_buffer_segment_info(pslr_handle_t h, pslr_buffer_segment_info_t *in
     command_init(&command, h, 0x04, 0x00);
 
     int retry = 20;
-    int ret;
+    int ret = PSLR_OK;
     info->b = 0;
 
     while (info->b == 0 && --retry > 0) {
-        pslr_data_t data;
-        memset(&data, 0, sizeof(pslr_data_t));
-        command_load_from_data(&command, &data, DATA_USAGE_READ_RESULT);
+        command_load_from_data(&command, NULL, DATA_USAGE_READ_RESULT);
         ret = generic_command(&command);
-        command_save_to_data(&command, &data);
-        parse_buffer_segment_info(h, &data, info);
+        parse_buffer_segment_info(h, &command.data, info);
+        command_save_to_data(&command, NULL);
 
         if (info->b == 0) {
             DPRINT("\t\t\tWaiting for segment info addr: 0x%x len: %d B=%d\n", info->addr, info->length, info->b);
@@ -569,7 +561,7 @@ int pslr_set_drive_mode(pslr_handle_t h, pslr_drive_mode_t drive_mode) {
 
 int pslr_set_raw_format(pslr_handle_t h, pslr_raw_format_t format) {
     DPRINT("[C]\t\tpslr_set_raw_format(%X)\n", format);
-    if (format < 0 || format > PSLR_RAW_FORMAT_MAX) {
+    if (format > PSLR_RAW_FORMAT_MAX) {
         return PSLR_PARAM;
     }
     pslr_command_t command;
@@ -624,7 +616,7 @@ int pslr_set_jpeg_contrast(pslr_handle_t h, int32_t contrast) {
 
 int pslr_set_color_space(pslr_handle_t h, pslr_color_space_t color_space) {
     DPRINT("[C]\t\tpslr_set_raw_format(%X)\n", color_space);
-    if (color_space < 0 || color_space > PSLR_COLOR_SPACE_MAX) {
+    if (color_space > PSLR_COLOR_SPACE_MAX) {
         return PSLR_PARAM;
     }
     pslr_command_t command;

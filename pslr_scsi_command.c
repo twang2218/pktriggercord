@@ -119,16 +119,16 @@ int scsi_send_command(pslr_command_t *command) {
     cmd[3] = command->c1;
     cmd[4] = command->args_count;
 
-    if (command->data_usage == DATA_USAGE_SCSI_READ && command->data != NULL && command->data_length > 0) {
-        int length = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data, command->data_length);
+    if (command->data_usage == DATA_USAGE_SCSI_READ && command->data.data != NULL && command->data.length > 0) {
+        int length = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data.data, command->data.length);
         if (length < 0) {
             DPRINT("\t\t\t\tscsi_read() error.\n");
-        } else if (length < command->data_length) {
-            DPRINT("\t\t\t\tOnly got %d bytes, should be %d bytes.\n", length, command->data_length);
+        } else if (length < command->data.length) {
+            DPRINT("\t\t\t\tOnly got %d bytes, should be %d bytes.\n", length, command->data.length);
         }
-        command->data_length = length;
+        command->data.length = length;
     } else {
-        CHECK(scsi_write(command->handle->fd, cmd, sizeof(cmd), command->data, command->data_length));
+        CHECK(scsi_write(command->handle->fd, cmd, sizeof(cmd), command->data.data, command->data.length));
     }
     return PSLR_OK;
 }
@@ -178,16 +178,16 @@ int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
 }
 
 int scsi_read_result(pslr_command_t *command) {
-    DPRINT("[C]\t\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data_length);
+    DPRINT("[C]\t\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data.length);
     uint8_t cmd[8] = {0xf0, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
-    set_uint32_le(command->data_length, &cmd[4]);
+    set_uint32_le(command->data.length, &cmd[4]);
 
-    int r = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data, command->data_length);
-    if (r != command->data_length) {
+    int r = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data.data, command->data.length);
+    if (r != command->data.length) {
         return PSLR_READ_ERROR;
     } else {
-        debug_print_data("\t\t\t\t", command->data, command->data_length);
+        debug_print_data("\t\t\t\t", command->data.data, command->data.length);
     }
     return PSLR_OK;
 }
@@ -216,13 +216,13 @@ int generic_command(pslr_command_t *command) {
     //  Read result
     if (command->data_usage == DATA_USAGE_READ_RESULT) {
         //  This means, the result should be read in another scsi command
-        if (command->data == NULL) {
+        if (command->data.data == NULL) {
             //  In many cases, the data length is only known by this point from
             //  last `scsi_get_status()` call, so it's more convenient to allocate
             //  the memory here, rather than random guessing a size before calling.
-            command->data = (uint8_t *)malloc(status.length);
+            command->data.data = (uint8_t *)malloc(status.length);
         }
-        command->data_length = status.length;
+        command->data.length = status.length;
         CHECK(scsi_read_result(command));
     }
 
@@ -237,21 +237,13 @@ void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t 
     command->data_usage = DATA_USAGE_NONE;
 }
 
-void command_free(pslr_command_t *command) {
-    if (command->data != NULL) {
-        free(command->data);
-        command->data = NULL;
-        command->data_length = 0;
-    }
-}
-
 void command_add_arg(pslr_command_t *command, uint32_t value) { command->args[command->args_count++] = value; }
 
 void command_load_from_data(pslr_command_t *command, pslr_data_t *data, scsi_data_usage_t usage) {
     command->data_usage = usage;
     if (data != NULL) {
-        command->data = data->data;
-        command->data_length = data->length;
+        command->data.data = data->data;
+        command->data.length = data->length;
     }
 }
 
@@ -259,11 +251,19 @@ void command_save_to_data(pslr_command_t *command, pslr_data_t *data) {
     if (data != NULL) {
         if (data->data == NULL) {
             //  caller didn't allocate the memory
-            data->data = command->data;
+            data->data = command->data.data;
         }
-        data->length = command->data_length;
+        data->length = command->data.length;
     } else {
         //  the data will not returned to caller, so free it
-        command_free(command);
+        command_free_data(command);
+    }
+}
+
+void command_free_data(pslr_command_t *command) {
+    if (command->data.data != NULL) {
+        free(command->data.data);
+        command->data.data = NULL;
+        command->data.length = 0;
     }
 }

@@ -35,8 +35,7 @@ typedef struct {
     uint8_t c1;
     uint8_t args_count;
     uint32_t args[MAX_ARGUMENTS];
-    uint8_t *data;
-    int32_t data_length;
+    pslr_data_t data;
     scsi_data_usage_t data_usage;
 } pslr_command_t;
 
@@ -54,9 +53,9 @@ int generic_command(pslr_command_t *command);
 
 //  Command Helper
 void command_init(pslr_command_t *command, pslr_handle_t h, uint8_t c0, uint8_t c1);
-void command_free(pslr_command_t *command);
 void command_add_arg(pslr_command_t *command, uint32_t value);
 void command_load_from_data(pslr_command_t *command, pslr_data_t *data, scsi_data_usage_t usage);
 void command_save_to_data(pslr_command_t *command, pslr_data_t *data);
+void command_free_data(pslr_command_t *command);
 
 #endif // PSLR_SCSI_COMMAND_H

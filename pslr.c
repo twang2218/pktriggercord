@@ -53,7 +53,7 @@
 
 #define BLKSZ 65536  /* Block size for downloads; if too big, we get
                      * memory allocation error from sg driver */
-#define BLOCK_SIZE 0x200 /* TODO: 0x10000 */
+#define BLOCK_SIZE 0x10000 /* TODO: only 0x200 in download random range */
 #define BLOCK_RETRY 3 /* Number of retries, since we can occasionally
                        * get SCSI errors when downloading data */
 
