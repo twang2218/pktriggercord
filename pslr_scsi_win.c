@@ -10,7 +10,7 @@
     Copyright (C) 2008 Pontus Lidman <pontus@lysator.liu.se>
 
     This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by 
+    it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
     (at your option) any later version.
 
@@ -33,8 +33,6 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#include "pslr_scsi.h"
-
 #define IOCTL_SCSI_PASS_THROUGH_DIRECT  0x4D014
 #define SCSI_IOCTL_DATA_IN              1
 #define SCSI_IOCTL_DATA_OUT             0
@@ -43,7 +41,7 @@
 #define IOCTL_STORAGE_QUERY_PROPERTY    0x2d1400
 
 
-typedef enum _STORAGE_PROPERTY_ID 
+typedef enum _STORAGE_PROPERTY_ID
 {
     StorageDeviceProperty = 0,
     StorageAdapterProperty,
@@ -94,7 +92,7 @@ typedef enum _STORAGE_BUS_TYPE {
     BusTypeMaxReserved = 0x7F
 } STORAGE_BUS_TYPE;
 
-typedef struct _STORAGE_DEVICE_DESCRIPTOR 
+typedef struct _STORAGE_DEVICE_DESCRIPTOR
 {
     DWORD Version;
     DWORD Size;
@@ -151,7 +149,7 @@ char **get_drives(int *driveNum) {
     return ret;
 }
 
-pslr_result get_drive_info(char* driveName, int* hDevice, 
+pslr_result get_drive_info(char* driveName, int* hDevice,
                             char* vendorId, int vendorIdSizeMax,
                             char* productId, int productIdSizeMax
                            )
@@ -166,10 +164,10 @@ pslr_result get_drive_info(char* driveName, int* hDevice,
     char fullDriveName[7];
 
     vendorId[0] = '\0';
-    productId[0] = '\0';    
+    productId[0] = '\0';
     query.PropertyId = StorageDeviceProperty;
     query.QueryType = PropertyStandardQuery;
-    
+
     snprintf( fullDriveName, 7, "\\\\.\\%s:", driveName);
 
     hDrive = CreateFile(fullDriveName,
@@ -201,10 +199,10 @@ pslr_result get_drive_info(char* driveName, int* hDevice,
        else
        {
 	   *hDevice = (int)hDrive;
-	   drive_status = PSLR_OK;          
-         
+	   drive_status = PSLR_OK;
+
 	   pdescriptor = (STORAGE_DEVICE_DESCRIPTOR *)descriptorBuf;
-       
+
 	   if(pdescriptor->VendorIdOffset != 0) {
              int i = 0;
              while((descriptorBuf[pdescriptor->VendorIdOffset + i] != 0)
@@ -226,7 +224,7 @@ pslr_result get_drive_info(char* driveName, int* hDevice,
 	     productId[i]='\0';
           }
        }
-    }	
+    }
     return drive_status;
 }
 
@@ -243,7 +241,7 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
    int Status;
    int LastError=0;
    uint8_t dataIn[64*1024];
-   
+
    sptdwb.sptd.Length = sizeof(SCSI_PASS_THROUGH_DIRECT);
    sptdwb.sptd.ScsiStatus = 0;
    sptdwb.sptd.PathId = 0;
@@ -256,9 +254,11 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
    sptdwb.sptd.TimeOutValue = 10;
    sptdwb.sptd.DataBuffer = dataIn;
    sptdwb.sptd.SenseInfoOffset = offsetof(SCSI_PASS_THROUGH_WITH_BUFFER,ucSenseBuf);
-   
+
    memset(sptdwb.sptd.Cdb, 0, sizeof(sptdwb.sptd.Cdb));
    memcpy(sptdwb.sptd.Cdb, cmd, cmdLen);
+
+   debug_print_data(PREFIX, "C >>>", cmd, cmdLen);
 
    Status=DeviceIoControl((HANDLE)sg_fd,
                           IOCTL_SCSI_PASS_THROUGH_DIRECT,
@@ -276,23 +276,28 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
          CancelIo((HANDLE)sg_fd);
       }
    }
-   
+
    memcpy(buf,sptdwb.sptd.DataBuffer,bufLen);
-   
+
    if(LastError != 0)
    {
       return -PSLR_SCSI_ERROR;
    }
    else
    {
+       int ret;
        if (sptdwb.sptd.DataTransferLength == bufLen)
        {
-            return bufLen;
+            ret = bufLen;
        }
        else
        {
-            return bufLen - sptdwb.sptd.DataTransferLength;
+            ret = bufLen - sptdwb.sptd.DataTransferLength;
        }
+
+       debug_print_data(PREFIX, "B <<<", buf, ret);
+
+       return ret;
    }
 }
 
@@ -303,7 +308,7 @@ int scsi_write(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
    DWORD outByte=0;
    int Status;
    int LastError=0;
-   
+
    sptdwb.sptd.Length = sizeof(SCSI_PASS_THROUGH_DIRECT);
    sptdwb.sptd.ScsiStatus = 0;
    sptdwb.sptd.PathId = 0;
@@ -316,9 +321,15 @@ int scsi_write(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
    sptdwb.sptd.TimeOutValue = 10;
    sptdwb.sptd.DataBuffer = buf;
    sptdwb.sptd.SenseInfoOffset = offsetof(SCSI_PASS_THROUGH_WITH_BUFFER,ucSenseBuf);
-   
+
    memset(sptdwb.sptd.Cdb, 0, sizeof(sptdwb.sptd.Cdb));
    memcpy(sptdwb.sptd.Cdb, cmd, cmdLen);
+
+   debug_print_data(PREFIX, "C >>>", cmd, cmdLen);
+   if (bufLen > 0) {
+       //  print debug write buffer
+       debug_print_data(PREFIX, "B >>>", buf, bufLen);
+   }
 
    Status=DeviceIoControl((HANDLE)sg_fd,
                           IOCTL_SCSI_PASS_THROUGH_DIRECT,

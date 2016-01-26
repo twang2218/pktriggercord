@@ -42,30 +42,11 @@ static void debug_print_arguments(pslr_command_t *command) {
     for (i = 0; i < command->args_count; ++i) {
         if (i > 0)
             DPRINT(", ");
+        if (command->args[i] > 10)
+            DPRINT("0x");
         DPRINT("%x", command->args[i]);
     }
     DPRINT(")");
-}
-
-static void debug_print_data(const char *prefix, uint8_t *data, uint32_t data_length) {
-    //  Print first 32 bytes of the data.
-    DPRINT("[R]%s => [", prefix);
-    int i;
-    for (i = 0; i < data_length && i < 32; ++i) {
-        if (i > 0) {
-            if (i % 16 == 0) {
-                DPRINT("\n%s    ", prefix);
-            } else if ((i % 4) == 0) {
-                DPRINT(" ");
-            }
-            DPRINT(" ");
-        }
-        DPRINT("%02X", data[i]);
-    }
-    if (data_length > 32) {
-        DPRINT(" ... (%d bytes more)", (data_length - 32));
-    }
-    DPRINT("]\n");
 }
 
 int scsi_send_argument(pslr_command_t *command) {
@@ -187,9 +168,8 @@ int scsi_read_result(pslr_command_t *command) {
     if (r != command->data.length) {
         return PSLR_READ_ERROR;
     } else {
-        debug_print_data("\t\t\t\t", command->data.data, command->data.length);
+        return PSLR_OK;
     }
-    return PSLR_OK;
 }
 
 int generic_command(pslr_command_t *command) {

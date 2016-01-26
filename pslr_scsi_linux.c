@@ -37,8 +37,6 @@
 #include <dirent.h>
 #include "pslr_model.h"
 
-#include "pslr_scsi.h"
-
 void print_scsi_error(sg_io_hdr_t *pIo, uint8_t *sense_buffer) {
     int k;
 
@@ -149,7 +147,6 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
     sg_io_hdr_t io;
     uint8_t sense[32];
     int r;
-    int i;
 
     memset(&io, 0, sizeof (io));
 
@@ -167,17 +164,7 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
     /* io.pack_id = 0; */
     /* io.usr_ptr = NULL; */
 
-    DPRINT("[S]\t\t\t\t\t >>> [");
-    for (i = 0; i < cmdLen; ++i) {
-        if (i > 0) {
-            DPRINT(" ");
-            if ((i%4) == 0 ) {
-                DPRINT(" ");
-            }
-        }
-        DPRINT("%02X", cmd[i]);
-    }
-    DPRINT("]\n");
+    debug_print_data(PREFIX, "C >>>", cmd, cmdLen);
 
     r = ioctl(sg_fd, SG_IO, &io);
     if (r == -1) {
@@ -189,26 +176,17 @@ int scsi_read(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
         print_scsi_error(&io, sense);
         return -PSLR_SCSI_ERROR;
     } else {
-        DPRINT("[S]\t\t\t\t\t <<< [");
-        for (i = 0; i < 32 && i < (bufLen - io.resid); ++i) {
-            if (i > 0) {
-                DPRINT(" ");
-                if (i % 16 == 0) {
-                    DPRINT("\n\t\t\t\t\t      ");
-                } else if ((i%4) == 0 ) {
-                    DPRINT(" ");
-                }
-            }
-            DPRINT("%02X", buf[i]);
-        }
-        DPRINT("]\n");
-
         /* Older Pentax DSLR will report all bytes remaining, so make
          * a special case for this (treat it as all bytes read). */
-        if (io.resid == bufLen)
-            return bufLen;
-        else
-            return bufLen - io.resid;
+         int ret;
+        if (io.resid == bufLen) {
+            ret = bufLen;
+        } else {
+            ret = bufLen - io.resid;
+        }
+        debug_print_data(PREFIX, "B <<<", buf, ret);
+
+        return ret;
     }
 }
 
@@ -218,7 +196,6 @@ int scsi_write(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
     sg_io_hdr_t io;
     uint8_t sense[32];
     int r;
-    int i;
 
     memset(&io, 0, sizeof (io));
 
@@ -237,32 +214,11 @@ int scsi_write(int sg_fd, uint8_t *cmd, uint32_t cmdLen,
     /* io.usr_ptr = NULL; */
 
     //  print debug scsi cmd
-    DPRINT("[S]\t\t\t\t\t >>> [");
-    for (i = 0; i < cmdLen; ++i) {
-        if (i > 0) {
-            DPRINT(" ");
-            if ((i%4) == 0 ) {
-                DPRINT(" ");
-            }
-        }
-        DPRINT("%02X", cmd[i]);
-    }
-    DPRINT("]\n");
+    debug_print_data(PREFIX, "C >>>", cmd, cmdLen);
+
     if (bufLen > 0) {
         //  print debug write buffer
-        DPRINT("[S]\t\t\t\t\t >>> [");
-        for (i = 0; i < 32 && i < bufLen; ++i) {
-            if (i > 0) {
-                DPRINT(" ");
-                if (i % 16 == 0) {
-                    DPRINT("\n\t\t\t\t\t      ");
-                } else if ((i%4) == 0 ) {
-                    DPRINT(" ");
-                }
-            }
-            DPRINT("%02X", buf[i]);
-        }
-        DPRINT("]\n");
+        debug_print_data(PREFIX, "B >>>", buf, bufLen);
     }
 
     r = ioctl(sg_fd, SG_IO, &io);
