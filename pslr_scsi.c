@@ -44,7 +44,7 @@ static void debug_print_data(const char *prefix, const char *tag, uint8_t *data,
         DPRINT("%02X", data[i]);
     }
     if (data_length > 32) {
-        DPRINT(" ... (%d bytes more)", (data_length - 32));
+        DPRINT(" ... (0x%x/%d bytes)", data_length, data_length);
     }
     DPRINT("]\n");
 }

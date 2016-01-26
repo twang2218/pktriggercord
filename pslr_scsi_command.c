@@ -92,13 +92,13 @@ int scsi_send_argument(pslr_command_t *command) {
 }
 
 int scsi_send_command(pslr_command_t *command) {
-    DPRINT("[C]\t\t\t\tscsi_send_command(command: [%02x %02x])\n", command->c0, command->c1);
+    DPRINT("[C]\t\t\t\tscsi_send_command([%02x %02x])\n", command->c0, command->c1);
 
     uint8_t cmd[8] = {0xf0, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     cmd[2] = command->c0;
     cmd[3] = command->c1;
-    cmd[4] = command->args_count;
+    cmd[4] = command->args_count * sizeof(uint32_t);
 
     if (command->data_usage == DATA_USAGE_SCSI_READ && command->data.data != NULL && command->data.length > 0) {
         int length = scsi_read(command->handle->fd, cmd, sizeof(cmd), command->data.data, command->data.length);
@@ -159,7 +159,7 @@ int scsi_get_status(pslr_command_t *command, pslr_command_status_t *status) {
 }
 
 int scsi_read_result(pslr_command_t *command) {
-    DPRINT("[C]\t\t\t\tscsi_read_result(0x%x, size=%d)\n", command->handle->fd, command->data.length);
+    DPRINT("[C]\t\t\t\tscsi_read_result(0x%x)\n", command->data.length);
     uint8_t cmd[8] = {0xf0, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
     set_uint32_le(command->data.length, &cmd[4]);
